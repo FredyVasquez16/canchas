@@ -1,0 +1,401 @@
+import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
+import { z } from 'zod';
+import {
+  HOUR_MS,
+  addDays,
+  buildDayAvailability,
+  evaluateReservation,
+  formatVenueDate,
+  isVenueDate,
+  validateBooking,
+  zonedToEpoch,
+  type Closure as CoreClosure,
+  type Court,
+  type CourtReservation,
+} from '@canchas/core';
+import { SESSION_TTL_MS, apiConfig } from './config.ts';
+import type { Db } from './db/index.ts';
+import { createUser, findUserByEmail, type UserRecord } from './db/users.ts';
+import {
+  createSession,
+  destroySession,
+  findSessionUser,
+  hashPassword,
+  verifyPassword,
+} from './auth.ts';
+import { getCourt, listCourts } from './db/courts.ts';
+import { listClosuresOverlapping } from './db/closures.ts';
+import {
+  cancelReservation,
+  countActiveReservationsForUser,
+  createReservation,
+  getReservation,
+  listBookedOverlapping,
+  listReservationsForUser,
+  markFailure,
+} from './db/reservations.ts';
+import { findActiveBlock } from './db/blocks.ts';
+import { isValidHonduranPhone } from './phone.ts';
+
+export interface AppDeps {
+  db: Db;
+  now?: () => number;
+}
+
+const registerSchema = z.object({
+  email: z.email(),
+  password: z.string().min(8),
+  name: z.string().trim().min(2),
+  phone: z.string().refine(isValidHonduranPhone, 'invalid_phone'),
+});
+
+const loginSchema = z.object({
+  email: z.email(),
+  password: z.string().min(1),
+});
+
+const availabilityQuerySchema = z.object({
+  date: z.string().refine(isVenueDate, 'invalid_date'),
+});
+
+const createReservationSchema = z.object({
+  courtId: z.string().min(1),
+  date: z.string().refine(isVenueDate, 'invalid_date'),
+  startHour: z.number().int().min(0).max(23),
+  hours: z.number().int().min(1),
+});
+
+function tokenFrom(request: FastifyRequest): string | null {
+  const header = request.headers.cookie;
+  if (!header) {
+    return null;
+  }
+  for (const part of header.split(';')) {
+    const trimmed = part.trim();
+    const separator = trimmed.indexOf('=');
+    if (separator === -1) {
+      continue;
+    }
+    if (trimmed.slice(0, separator) === 'session') {
+      return trimmed.slice(separator + 1);
+    }
+  }
+  return null;
+}
+
+function sessionCookie(token: string, ttlMs: number): string {
+  return `session=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${Math.floor(ttlMs / 1000)}`;
+}
+
+const CLEAR_COOKIE = 'session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0';
+
+export interface PublicUser {
+  id: string;
+  email: string;
+  name: string;
+  phone: string;
+  role: UserRecord['role'];
+}
+
+function publicUser(user: UserRecord): PublicUser {
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    phone: user.phone,
+    role: user.role,
+  };
+}
+
+function toCoreCourt(court: {
+  id: string;
+  name: string;
+  pricePerHourCents: number;
+  active: boolean;
+}): Court {
+  return {
+    id: court.id,
+    name: court.name,
+    pricePerHourCents: court.pricePerHourCents,
+    active: court.active,
+  };
+}
+
+export function buildApp(deps: AppDeps, options: { logger?: boolean } = {}): FastifyInstance {
+  const { db } = deps;
+  const now = deps.now ?? (() => Date.now());
+  const app = Fastify({ logger: options.logger ?? false });
+
+  function currentUser(request: FastifyRequest): UserRecord | null {
+    const token = tokenFrom(request);
+    if (!token) {
+      return null;
+    }
+    return findSessionUser(db, token, now());
+  }
+
+  function reject(reply: FastifyReply, status: number, error: string): FastifyReply {
+    return reply.code(status).send({ error });
+  }
+
+  app.get('/health', async () => ({ status: 'ok' }));
+
+  app.post('/api/auth/register', async (request, reply) => {
+    const parsed = registerSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reject(reply, 400, 'invalid_input');
+    }
+    if (findUserByEmail(db, parsed.data.email)) {
+      return reject(reply, 409, 'email_taken');
+    }
+
+    const user = createUser(db, {
+      email: parsed.data.email,
+      passwordHash: hashPassword(parsed.data.password),
+      name: parsed.data.name,
+      phone: parsed.data.phone,
+      now: now(),
+    });
+    const token = createSession(db, user.id, now(), SESSION_TTL_MS);
+
+    reply.header('Set-Cookie', sessionCookie(token, SESSION_TTL_MS));
+    return reply.code(201).send({ user: publicUser({ ...user, passwordHash: '' }) });
+  });
+
+  app.post('/api/auth/login', async (request, reply) => {
+    const parsed = loginSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reject(reply, 400, 'invalid_input');
+    }
+
+    const user = findUserByEmail(db, parsed.data.email);
+    if (!user || !verifyPassword(parsed.data.password, user.passwordHash)) {
+      return reject(reply, 401, 'invalid_credentials');
+    }
+
+    const token = createSession(db, user.id, now(), SESSION_TTL_MS);
+    reply.header('Set-Cookie', sessionCookie(token, SESSION_TTL_MS));
+    return reply.code(200).send({ user: publicUser(user) });
+  });
+
+  app.post('/api/auth/logout', async (request, reply) => {
+    const token = tokenFrom(request);
+    if (token) {
+      destroySession(db, token);
+    }
+    reply.header('Set-Cookie', CLEAR_COOKIE);
+    return reply.code(200).send({ ok: true });
+  });
+
+  app.get('/api/auth/me', async (request, reply) => {
+    const user = currentUser(request);
+    if (!user) {
+      return reject(reply, 401, 'unauthenticated');
+    }
+    return reply.code(200).send({ user: publicUser(user) });
+  });
+
+  app.get('/api/courts', async (_request, reply) => {
+    return reply.code(200).send({ courts: listCourts(db) });
+  });
+
+  app.get('/api/availability', async (request, reply) => {
+    const parsed = availabilityQuerySchema.safeParse(request.query);
+    if (!parsed.success) {
+      return reject(reply, 400, 'invalid_input');
+    }
+    const { date } = parsed.data;
+    const timeZone = apiConfig.venueTimeZone;
+    const dayStart = zonedToEpoch(date, 0, timeZone);
+    const dayEnd = zonedToEpoch(addDays(date, 1), 0, timeZone);
+
+    const courts = listCourts(db).map(toCoreCourt);
+    const reservations: CourtReservation[] = listBookedOverlapping(db, dayStart, dayEnd).map(
+      (reservation) => ({
+        id: reservation.id,
+        courtId: reservation.courtId,
+        startAt: reservation.startAt,
+        endAt: reservation.endAt,
+        status: reservation.status,
+      }),
+    );
+    const closures: CoreClosure[] = listClosuresOverlapping(db, dayStart, dayEnd).map((closure) => ({
+      id: closure.id,
+      courtId: closure.courtId,
+      startAt: closure.startAt,
+      endAt: closure.endAt,
+    }));
+
+    const availability = buildDayAvailability({
+      date,
+      timeZone,
+      courts,
+      reservations,
+      closures,
+      now: now(),
+    });
+
+    return reply.code(200).send({
+      date,
+      timeZone,
+      currency: apiConfig.currency,
+      cancelWindowHours: apiConfig.cancelWindowHours,
+      courts: availability.map((entry) => ({
+        court: entry.court,
+        slots: entry.slots.map(({ slot, status }) => ({
+          hour: slot.hour,
+          label: slot.label,
+          startAt: slot.startAt,
+          endAt: slot.endAt,
+          status,
+        })),
+      })),
+    });
+  });
+
+  app.post('/api/reservations', async (request, reply) => {
+    const user = currentUser(request);
+    if (!user) {
+      return reject(reply, 401, 'unauthenticated');
+    }
+
+    const parsed = createReservationSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reject(reply, 400, 'invalid_input');
+    }
+    const { courtId, date, startHour, hours } = parsed.data;
+
+    const courtRecord = getCourt(db, courtId);
+    if (!courtRecord) {
+      return reject(reply, 404, 'court_not_found');
+    }
+
+    const timestamp = now();
+    if (findActiveBlock(db, { userId: user.id, phone: user.phone, at: timestamp })) {
+      return reject(reply, 403, 'blocked');
+    }
+
+    if (countActiveReservationsForUser(db, user.id, timestamp) >= apiConfig.maxActiveReservations) {
+      return reject(reply, 403, 'active_limit');
+    }
+
+    const timeZone = apiConfig.venueTimeZone;
+    const startAt = zonedToEpoch(date, startHour, timeZone);
+    const endAt = startAt + hours * HOUR_MS;
+
+    db.exec('BEGIN IMMEDIATE');
+    try {
+      const overlapping: CourtReservation[] = listBookedOverlapping(
+        db,
+        startAt,
+        endAt,
+        courtId,
+      ).map((reservation) => ({
+        id: reservation.id,
+        courtId: reservation.courtId,
+        startAt: reservation.startAt,
+        endAt: reservation.endAt,
+        status: reservation.status,
+      }));
+      const closures: CoreClosure[] = listClosuresOverlapping(db, startAt, endAt).map(
+        (closure) => ({
+          id: closure.id,
+          courtId: closure.courtId,
+          startAt: closure.startAt,
+          endAt: closure.endAt,
+        }),
+      );
+
+      const result = validateBooking({
+        request: { court: toCoreCourt(courtRecord), date, startHour, hours },
+        reservations: overlapping,
+        closures,
+        now: timestamp,
+        policy: { timeZone, maxAdvanceDays: apiConfig.maxAdvanceDays },
+      });
+
+      if (!result.ok) {
+        db.exec('ROLLBACK');
+        const status = result.reason === 'occupied' ? 409 : 400;
+        return reject(reply, status, result.reason);
+      }
+
+      const reservation = createReservation(db, {
+        courtId,
+        userId: user.id,
+        startAt: result.startAt,
+        endAt: result.endAt,
+        hours: result.hours,
+        pricePerHourCents: result.pricePerHourCents,
+        totalCents: result.totalCents,
+        now: timestamp,
+      });
+      db.exec('COMMIT');
+
+      return reply.code(201).send({
+        reservation,
+        court: {
+          id: courtRecord.id,
+          name: courtRecord.name,
+          pricePerHourCents: result.pricePerHourCents,
+        },
+      });
+    } catch (error) {
+      db.exec('ROLLBACK');
+      throw error;
+    }
+  });
+
+  app.get('/api/reservations/mine', async (request, reply) => {
+    const user = currentUser(request);
+    if (!user) {
+      return reject(reply, 401, 'unauthenticated');
+    }
+    const reservations = listReservationsForUser(db, user.id, now());
+    return reply.code(200).send({ reservations });
+  });
+
+  app.post('/api/reservations/:id/cancel', async (request, reply) => {
+    const user = currentUser(request);
+    if (!user) {
+      return reject(reply, 401, 'unauthenticated');
+    }
+    const { id } = request.params as { id: string };
+    const reservation = getReservation(db, id);
+    if (!reservation || reservation.userId !== user.id) {
+      return reject(reply, 404, 'reservation_not_found');
+    }
+    if (reservation.status !== 'booked') {
+      return reject(reply, 409, 'already_cancelled');
+    }
+
+    const timestamp = now();
+    if (timestamp >= reservation.startAt) {
+      return reject(reply, 409, 'already_started');
+    }
+
+    const evaluation = evaluateReservation({
+      startAt: reservation.startAt,
+      endAt: reservation.endAt,
+      now: timestamp,
+      cancelWindowHours: apiConfig.cancelWindowHours,
+      cancelledAt: timestamp,
+      arrivedAt: reservation.arrivedAt,
+    });
+
+    cancelReservation(db, reservation.id, timestamp);
+    if (evaluation.markFailure) {
+      markFailure(db, reservation.id, 'late_cancel', timestamp);
+    }
+
+    return reply.code(200).send({
+      reservation: getReservation(db, reservation.id),
+      marked: evaluation.markFailure,
+      cancellationDeadline: evaluation.cancellationDeadline,
+    });
+  });
+
+  return app;
+}
+
+export { HOUR_MS, formatVenueDate };
