@@ -96,6 +96,16 @@ export function buildApp(deps: AppDeps, options: { logger?: boolean } = {}): Fas
 
   app.get('/health', async () => ({ status: 'ok' }));
 
+  app.get('/api/config', async (_request, reply) =>
+    reply.code(200).send({
+      venueTimeZone: apiConfig.venueTimeZone,
+      currency: apiConfig.currency,
+      cancelWindowHours: apiConfig.cancelWindowHours,
+      maxAdvanceDays: apiConfig.maxAdvanceDays,
+      maxActiveReservations: apiConfig.maxActiveReservations,
+    }),
+  );
+
   app.post('/api/auth/register', async (request, reply) => {
     const parsed = registerSchema.safeParse(request.body);
     if (!parsed.success) {

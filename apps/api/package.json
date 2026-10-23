@@ -12,7 +12,8 @@
     "start": "tsx src/server.ts",
     "seed": "tsx src/seed.ts",
     "job": "tsx src/job.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "create-admin": "tsx src/create-admin.ts"
   },
   "dependencies": {
     "@canchas/core": "*",

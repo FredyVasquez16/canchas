@@ -258,6 +258,27 @@ describe('clients, failures and penalties', () => {
 });
 
 describe('courts and closures', () => {
+  it('lists every court, including the deactivated ones, for the admin', async () => {
+    context = createTestContext();
+    const admin = await signInAs(context, 'admin', 'admin@example.com');
+    const staff = await signInAs(context, 'staff', 'staff@example.com');
+    const courtId = await firstCourt(context);
+
+    await context.app.inject({
+      method: 'PATCH',
+      url: `/api/admin/courts/${courtId}`,
+      headers: { cookie: admin },
+      payload: { active: false },
+    });
+
+    const adminView = await get(context, '/api/admin/courts', admin);
+    expect(adminView.statusCode).toBe(200);
+    expect((adminView.json() as { courts: unknown[] }).courts).toHaveLength(3);
+
+    const staffView = await get(context, '/api/admin/courts', staff);
+    expect(staffView.statusCode).toBe(403);
+  });
+
   it('lets the admin change a price and staff cannot', async () => {
     context = createTestContext();
     const admin = await signInAs(context, 'admin', 'admin@example.com');

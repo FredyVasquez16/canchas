@@ -282,6 +282,11 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
     return reply.code(200).send({ ok: true });
   });
 
+  app.get('/api/admin/courts', async (request, reply) => {
+    if (!requireAdmin(request, reply)) return reply;
+    return reply.code(200).send({ courts: listCourts(db, { includeInactive: true }) });
+  });
+
   app.post('/api/admin/courts', async (request, reply) => {
     if (!requireAdmin(request, reply)) return reply;
     const parsed = courtCreateSchema.safeParse(request.body);
