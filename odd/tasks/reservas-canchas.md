@@ -54,6 +54,73 @@ de horas a poder reservar"); only availability limits it.
 
 | ID | Specs | Route | Commit |
 | --- | --- | --- | --- |
+| T1 | — | Scaffold npm workspaces monorepo: `packages/core`, `apps/api`, `apps/web`, Vitest, TypeScript strict | done — 8a6206d |
+| T2 | S3, S12, S18, S20 | Core TDD: venue time zone helpers, 24-slot grid, availability with reservations crossing midnight and closures | done — 4fc12c3 |
+| T3 | S4, S6, S7, S8, S9, S16 | Core TDD: booking validation, price snapshot, cancellation window and failure-mark evaluation | done — 4fc12c3 |
+| T4 | S1, S4, S11, S12, S13, S14 | API: schema, migration, seed (3 courts, HNL prices, 24h), repositories | done — fdbdc93 |
+| T5 | S1, S14 | API: register/login with email + password, sessions, roles admin/staff | done — b5328c9 |
+| T6 | S2, S3, S4, S11, S16, S20 | API: public availability endpoint and transactional booking | done — b5328c9 |
+| T7 | S6, S7, S8, S9, S10, S12, S15, S19 | API: panel endpoints (courts, prices, closures, arrival, failures, penalties, blocks, WhatsApp link) | done — 8e68ba1 |
+| T8 | S7, S15 | API: scheduled job marking no-shows, plus one email reminder per reservation | done — 5a45381 |
+| T9 | S2, S3, S4, S5 | Web: PWA client flow date -> free hours -> range -> login -> confirm, and my reservations with cancel | done — 06985a4 |
+| T10 | S10, S12, S14, S19 | Web: panel for admin and staff | done — b5c32f3 |
+
+Surface added after T8 to close real gaps:
+
+| Commit | What |
+| --- | --- |
+| b3128b5 | `GET /api/config` (venue time zone, currency, limits), `GET /api/admin/courts` with deactivated courts, `create-admin` CLI |
+
+## Log` before acting on any task in this document.
+
+## Specs
+
+S1. Registration uses email + password. Name and phone are required at registration;
+the phone feeds reminders and blocking.
+S2. Anyone can see availability for a chosen date without an account. Booking requires
+an account ("sin solo podra ver pero no reservar").
+S3. Time grid is fixed 60-minute blocks, 24 slots per day, 00:00 through 23:59, because
+"es un local 24 horas". Flow: pick date -> see free hours -> select a consecutive range
+("de tal hora a tal hora").
+S4. Price is per court per hour, set by the owner. Total = booked hours x court price.
+S5. Payment is cash at the venue on arrival; the app never charges.
+S6. Cancelling 3 hours or more before the reserved hour has no consequence. Cancelling
+inside that window produces an automatic failure mark. Boundary: exactly 3 hours before
+is still free.
+S7. A reservation that reaches its end without an arrival record produces an automatic
+failure mark.
+S8. When staff collects the cash they mark "arrived"; the reservation counts as fulfilled
+and never produces a failure mark.
+S9. A failure mark is not a penalty. Penalties (N days without booking) are applied only
+by the owner, who can also remove them at any time.
+S10. Panel shows marked clients, how many times each failed in the month, lets the owner
+set N penalty days, remove a penalty, and see court availability and reservations.
+S11. A block applies to the phone number and to the account, so a new account with the
+same phone cannot book.
+S12. The owner closes the venue for a date range or an hour range; those slots cannot be
+booked ("que no se puede reservar de cierta ora a cierta hora o de cierta fecha a cierta
+fecha").
+S13. Changing a price never alters existing reservations; the price is snapshotted at
+booking time.
+S14. Roles: admin (everything) and staff (agenda, arrivals, failure marks, closures; no
+prices, no accounts).
+S15. Reminder is sent automatically by email; a manual WhatsApp link is available in the
+panel. No WhatsApp API in v1.
+S16. Limits live in configuration, not in the UI: maximum advance booking 30 days,
+maximum 2 active reservations per client.
+S17. Development runs locally; deployment is decided later.
+S18. Venue facts: Honduras, currency HNL (minor unit = centavos), time zone
+`America/Tegucigalpa`, 3 courts at start, 24h schedule.
+S19. The owner can change the number of courts, the price per hour and the closed days
+from the panel ("el dueno puede modificar estas aspectos como el numero de canchas
+disponibles, los precios por hora, los dias que no estaran abiertos").
+S20. There is no maximum number of consecutive hours per reservation ("no hay un limite
+de horas a poder reservar"); only availability limits it.
+
+## Tasks
+
+| ID | Specs | Route | Commit |
+| --- | --- | --- | --- |
 | T1 | — | Scaffold npm workspaces monorepo: `packages/core`, `apps/api`, `apps/web`, Vitest, TypeScript strict | pending |
 | T2 | S3, S12, S18, S20 | Core TDD: venue time zone helpers, 24-slot grid, availability with reservations crossing midnight and closures | pending |
 | T3 | S4, S6, S7, S8, S9, S16 | Core TDD: booking validation, price snapshot, cancellation window and failure-mark evaluation | pending |
@@ -136,3 +203,20 @@ L14 (decision): local development first; no deployment target chosen yet, so the
 SQLite + Drizzle (portable to Postgres later).
 L15 (decision): a failure mark is recorded per reservation; the monthly count is derived
 from those marks, never typed by hand.
+
+L16 (implementation): the machine has no Docker, so the persistence layer is
+`node:sqlite` with explicit SQL instead of a Postgres container. This supersedes the Drizzle
+part of L14; portability to Postgres now means rewriting the repository layer, not the domain.
+L17 (implementation): the client cannot guess the venue time zone, so `GET /api/config` exposes
+it with the currency and the limits; the browser date is never trusted for business rules.
+L18 (implementation): the date strip covers seven days and an explicit date input reaches any
+day inside the 30 day advance limit.
+L19 (implementation): the owner needs to reactivate a court, so `GET /api/admin/courts` returns
+deactivated courts for the admin only.
+L20 (implementation): there is no public path to the first owner account, so `create-admin`
+creates it from environment variables and is idempotent by email.
+L21 (verification): 58 API tests, 10 web unit tests, `npm run typecheck` and the web build pass.
+A browser smoke run (Playwright, not committed) exercised board, range selection, registration,
+booking, cancellation and every panel tab against a real server.
+L22 (known gaps, not part of the accepted scope): no email provider, no deployment, no rate
+limit on login, and the browser smoke run lives outside the repository.
