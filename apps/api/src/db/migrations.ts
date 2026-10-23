@@ -84,4 +84,11 @@ export const MIGRATIONS: Migration[] = [
       CREATE INDEX client_blocks_phone_idx ON client_blocks (phone_normalized, revoked_at);
     `,
   },
+  {
+    // S15: stamps the reminder email so the scheduled job sends it exactly once.
+    version: 2,
+    sql: `
+      ALTER TABLE reservations ADD COLUMN reminded_at INTEGER;
+    `,
+  },
 ];

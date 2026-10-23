@@ -18,6 +18,7 @@ export interface Reservation {
   cancelledAt: number | null;
   failureMarkedAt: number | null;
   failureReason: FailureReason | null;
+  remindedAt: number | null;
   createdAt: number;
 }
 
@@ -35,6 +36,7 @@ interface ReservationRow {
   cancelled_at: number | null;
   failure_marked_at: number | null;
   failure_reason: FailureReason | null;
+  reminded_at: number | null;
   created_at: number;
 }
 
@@ -65,6 +67,7 @@ export function toReservation(row: ReservationRow): Reservation {
     cancelledAt: row.cancelled_at === null ? null : Number(row.cancelled_at),
     failureMarkedAt: row.failure_marked_at === null ? null : Number(row.failure_marked_at),
     failureReason: row.failure_reason,
+    remindedAt: row.reminded_at === null ? null : Number(row.reminded_at),
     createdAt: Number(row.created_at),
   };
 }
@@ -222,6 +225,50 @@ export function listReservationsStartingBetween(
      ORDER BY start_at`,
     [after, before],
   ).map(toReservation);
+}
+
+interface ReminderRow extends ReservationRow {
+  court_name: string;
+  client_name: string;
+  client_email: string;
+}
+
+export interface ReminderCandidate extends Reservation {
+  courtName: string;
+  clientName: string;
+  clientEmail: string;
+}
+
+/**
+ * S15: booked reservations starting in (after, before], joined with the court name and
+ * the client contact details. Includes already reminded rows so the caller can count them
+ * as skipped instead of re-sending.
+ */
+export function listRemindersBetween(
+  db: Db,
+  after: number,
+  before: number,
+): ReminderCandidate[] {
+  return allRows<ReminderRow>(
+    db,
+    `SELECT r.*, c.name AS court_name, u.name AS client_name, u.email AS client_email
+     FROM reservations r
+     JOIN courts c ON c.id = r.court_id
+     JOIN users u ON u.id = r.user_id
+     WHERE r.status = 'booked' AND r.start_at > ? AND r.start_at <= ?
+     ORDER BY r.start_at, c.sort_order`,
+    [after, before],
+  ).map((row) => ({
+    ...toReservation(row),
+    courtName: row.court_name,
+    clientName: row.client_name,
+    clientEmail: row.client_email,
+  }));
+}
+
+/** S15: stamps the reminder so the job never sends a second email for the same reservation. */
+export function markReminded(db: Db, id: string, now: number): void {
+  runSql(db, 'UPDATE reservations SET reminded_at = ? WHERE id = ?', [now, id]);
 }
 
 /** Agenda rows joined with the court name and the client contact details. */

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { migrate, openDatabase } from '../src/db/index.ts';
+import { MIGRATIONS } from '../src/db/migrations.ts';
 import { listCourts, setCourtActive, updateCourtPrice } from '../src/db/courts.ts';
 import { seedCourts } from '../src/seed.ts';
 import { createReservation } from '../src/db/reservations.ts';
@@ -30,8 +31,13 @@ describe('migrations', () => {
     migrate(db, NOW);
     migrate(db, NOW);
 
-    const versions = db.prepare('SELECT version FROM schema_migrations').all();
-    expect(versions).toHaveLength(1);
+    const versions = (
+      db.prepare('SELECT version FROM schema_migrations').all() as unknown as Array<{
+        version: number;
+      }>
+    ).map((row) => Number(row.version));
+    // Every migration in the code is applied exactly once, in order.
+    expect(versions).toEqual(MIGRATIONS.map((migration) => migration.version));
 
     const tables = db
       .prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name")

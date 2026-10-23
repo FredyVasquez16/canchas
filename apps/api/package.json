@@ -11,6 +11,7 @@
     "dev": "tsx watch src/server.ts",
     "start": "tsx src/server.ts",
     "seed": "tsx src/seed.ts",
+    "job": "tsx src/job.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
