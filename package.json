@@ -20,7 +20,12 @@
   },
   "devDependencies": {
     "@types/node": "^24.19.2",
+    "tsx": "^4.23.15",
     "typescript": "^5.9.3",
     "vitest": "^3.2.7"
+  },
+  "dependencies": {
+    "fastify": "^5.12.7",
+    "zod": "^4.6.7"
   }
 }

@@ -1,4 +1,4 @@
-import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
+import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import {
   HOUR_MS,
@@ -36,6 +36,8 @@ import {
 } from './db/reservations.ts';
 import { findActiveBlock } from './db/blocks.ts';
 import { isValidHonduranPhone } from './phone.ts';
+import { CLEAR_COOKIE, publicUser, reject, sessionCookie, tokenFrom } from './http.ts';
+import { registerAdminRoutes } from './routes/admin.ts';
 
 export interface AppDeps {
   db: Db;
@@ -65,48 +67,6 @@ const createReservationSchema = z.object({
   hours: z.number().int().min(1),
 });
 
-function tokenFrom(request: FastifyRequest): string | null {
-  const header = request.headers.cookie;
-  if (!header) {
-    return null;
-  }
-  for (const part of header.split(';')) {
-    const trimmed = part.trim();
-    const separator = trimmed.indexOf('=');
-    if (separator === -1) {
-      continue;
-    }
-    if (trimmed.slice(0, separator) === 'session') {
-      return trimmed.slice(separator + 1);
-    }
-  }
-  return null;
-}
-
-function sessionCookie(token: string, ttlMs: number): string {
-  return `session=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${Math.floor(ttlMs / 1000)}`;
-}
-
-const CLEAR_COOKIE = 'session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0';
-
-export interface PublicUser {
-  id: string;
-  email: string;
-  name: string;
-  phone: string;
-  role: UserRecord['role'];
-}
-
-function publicUser(user: UserRecord): PublicUser {
-  return {
-    id: user.id,
-    email: user.email,
-    name: user.name,
-    phone: user.phone,
-    role: user.role,
-  };
-}
-
 function toCoreCourt(court: {
   id: string;
   name: string;
@@ -134,10 +94,6 @@ export function buildApp(deps: AppDeps, options: { logger?: boolean } = {}): Fas
     return findSessionUser(db, token, now());
   }
 
-  function reject(reply: FastifyReply, status: number, error: string): FastifyReply {
-    return reply.code(status).send({ error });
-  }
-
   app.get('/health', async () => ({ status: 'ok' }));
 
   app.post('/api/auth/register', async (request, reply) => {
@@ -159,7 +115,7 @@ export function buildApp(deps: AppDeps, options: { logger?: boolean } = {}): Fas
     const token = createSession(db, user.id, now(), SESSION_TTL_MS);
 
     reply.header('Set-Cookie', sessionCookie(token, SESSION_TTL_MS));
-    return reply.code(201).send({ user: publicUser({ ...user, passwordHash: '' }) });
+    return reply.code(201).send({ user: publicUser(user) });
   });
 
   app.post('/api/auth/login', async (request, reply) => {
@@ -394,6 +350,8 @@ export function buildApp(deps: AppDeps, options: { logger?: boolean } = {}): Fas
       cancellationDeadline: evaluation.cancellationDeadline,
     });
   });
+
+  registerAdminRoutes(app, { db, now });
 
   return app;
 }

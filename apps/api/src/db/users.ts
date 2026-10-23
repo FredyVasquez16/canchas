@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { oneRow, runSql, type Db } from './index.ts';
+import { allRows, oneRow, runSql, type Db } from './index.ts';
 import { normalizePhone } from '../phone.ts';
 
 export type Role = 'admin' | 'staff' | 'client';
@@ -102,4 +102,48 @@ export function findUserByPhone(db: Db, phone: string): UserRecord | null {
     normalizePhone(phone),
   ]);
   return row ? toUserRecord(row) : null;
+}
+
+export interface ClientFailureCount {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  phoneNormalized: string;
+  failures: number;
+}
+
+/** S10: failures of a month are derived from the marks, never typed by hand. */
+export function listClientFailureCounts(
+  db: Db,
+  monthStart: number,
+  monthEnd: number,
+): ClientFailureCount[] {
+  return allRows<{
+    id: string;
+    name: string;
+    email: string;
+    phone: string;
+    phone_normalized: string;
+    failures: number;
+  }>(
+    db,
+    `SELECT u.id, u.name, u.email, u.phone, u.phone_normalized,
+            COALESCE(SUM(CASE WHEN r.failure_marked_at IS NOT NULL
+                              AND r.failure_marked_at >= ?
+                              AND r.failure_marked_at < ? THEN 1 ELSE 0 END), 0) AS failures
+     FROM users u
+     LEFT JOIN reservations r ON r.user_id = u.id
+     WHERE u.role = 'client'
+     GROUP BY u.id
+     ORDER BY failures DESC, u.name`,
+    [monthStart, monthEnd],
+  ).map((row) => ({
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    phone: row.phone,
+    phoneNormalized: row.phone_normalized,
+    failures: Number(row.failures),
+  }));
 }

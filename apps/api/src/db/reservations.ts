@@ -38,6 +38,18 @@ interface ReservationRow {
   created_at: number;
 }
 
+interface AgendaRow extends ReservationRow {
+  court_name: string;
+  client_name: string;
+  client_phone: string;
+}
+
+export interface AgendaEntry extends Reservation {
+  courtName: string;
+  clientName: string;
+  clientPhone: string;
+}
+
 export function toReservation(row: ReservationRow): Reservation {
   return {
     id: row.id,
@@ -210,4 +222,27 @@ export function listReservationsStartingBetween(
      ORDER BY start_at`,
     [after, before],
   ).map(toReservation);
+}
+
+/** Agenda rows joined with the court name and the client contact details. */
+export function listAgendaBetween(
+  db: Db,
+  startAt: number,
+  endAt: number,
+): AgendaEntry[] {
+  return allRows<AgendaRow>(
+    db,
+    `SELECT r.*, c.name AS court_name, u.name AS client_name, u.phone AS client_phone
+     FROM reservations r
+     JOIN courts c ON c.id = r.court_id
+     JOIN users u ON u.id = r.user_id
+     WHERE r.end_at > ? AND r.start_at < ?
+     ORDER BY r.start_at, c.sort_order`,
+    [startAt, endAt],
+  ).map((row) => ({
+    ...toReservation(row),
+    courtName: row.court_name,
+    clientName: row.client_name,
+    clientPhone: row.client_phone,
+  }));
 }
