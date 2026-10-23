@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Canchas">
+  <rect width="512" height="512" rx="96" fill="#0c3730" />
+  <g stroke="#edf2ea" stroke-opacity="0.55" stroke-width="10" fill="none">
+    <rect x="76" y="136" width="360" height="240" rx="6" />
+    <line x1="256" y1="136" x2="256" y2="376" />
+    <circle cx="256" cy="256" r="52" />
+    <path d="M76 196 h56 v120 h-56" />
+    <path d="M436 196 h-56 v120 h56" />
+  </g>
+  <path d="M356 96 a120 120 0 0 1 60 60" stroke="#ffc857" stroke-width="22" fill="none" stroke-linecap="round" />
+  <circle cx="256" cy="256" r="10" fill="#ffc857" />
+</svg>

@@ -1,0 +1,68 @@
+import { addDays, formatVenueDate, venueHour, zonedToEpoch } from '@canchas/core';
+
+const SYMBOLS: Record<string, string> = { HNL: 'L' };
+
+export function formatMoney(cents: number, currency = 'HNL'): string {
+  const symbol = SYMBOLS[currency] ?? currency;
+  const whole = Math.floor(Math.abs(cents) / 100).toString();
+  const fraction = (Math.abs(cents) % 100).toString().padStart(2, '0');
+  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return `${cents < 0 ? '-' : ''}${symbol} ${grouped}.${fraction}`;
+}
+
+export function todayInVenue(timeZone: string): string {
+  return formatVenueDate(Date.now(), timeZone);
+}
+
+export function hourText(epochMs: number, timeZone: string): string {
+  return `${String(venueHour(epochMs, timeZone)).padStart(2, '0')}:00`;
+}
+
+export function rangeText(startAt: number, endAt: number, timeZone: string): string {
+  return `${hourText(startAt, timeZone)} - ${hourText(endAt, timeZone)}`;
+}
+
+export function dayText(date: string, timeZone: string): string {
+  const noon = zonedToEpoch(date, 12, timeZone);
+  return new Intl.DateTimeFormat('es-HN', {
+    timeZone,
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  }).format(noon);
+}
+
+export interface DayOption {
+  date: string;
+  weekday: string;
+  day: string;
+  relative: string | null;
+}
+
+export function upcomingDays(
+  from: string,
+  timeZone: string,
+  count = 7,
+): DayOption[] {
+  return Array.from({ length: count }, (_, index) => {
+    const date = addDays(from, index);
+    const noon = zonedToEpoch(date, 12, timeZone);
+    const parts = new Intl.DateTimeFormat('es-HN', {
+      timeZone,
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+    }).formatToParts(noon);
+    const read = (type: string) => parts.find((part) => part.type === type)?.value ?? '';
+    return {
+      date,
+      weekday: read('weekday').replace('.', ''),
+      day: `${read('day')} ${read('month').replace('.', '')}`,
+      relative: index === 0 ? 'hoy' : index === 1 ? 'mañana' : null,
+    };
+  });
+}
+
+export function monthKey(date: string): string {
+  return date.slice(0, 7);
+}

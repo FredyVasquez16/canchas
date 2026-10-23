@@ -1,0 +1,29 @@
+/*
+ * Booking feature additions. Everything else comes from the shared inventory in
+ * src/styles.css; this file only covers the small gaps the feature needs.
+ */
+
+/* Wraps one court row of the board; display:contents keeps the grid layout. */
+.board__row {
+  display: contents;
+}
+
+.date-chip__relative {
+  font-size: 0.72rem;
+  color: var(--chalk-dim);
+  line-height: 1.2;
+}
+
+.date-picker {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.date-picker .input {
+  width: auto;
+  min-height: 2.2rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.9rem;
+}
