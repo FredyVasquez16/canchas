@@ -19,6 +19,7 @@ export {
   zonedToEpoch,
 } from './time.ts';
 export { SLOTS_PER_DAY, daySlots, rangesOverlap } from './slots.ts';
+export { formatHour12, formatHour12Range, formatHour12Short } from './clock.ts';
 export type { TimeRange } from './slots.ts';
 export { buildDayAvailability } from './availability.ts';
 export type { AvailabilityInput } from './availability.ts';
