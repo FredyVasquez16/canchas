@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { zonedToEpoch } from '@canchas/core';
 import { markArrival } from '../src/db/reservations.ts';
 import { runScheduledJob, type JobResult, type Mailer } from '../src/jobs.ts';
+import { ConsoleMailer, createMailer } from '../src/mailer.ts';
 import { createTestContext, NOW, registerClient, TZ, type TestContext } from './helpers.ts';
 
 let context: TestContext;
@@ -164,8 +165,8 @@ describe('scheduled job - email reminders (S15)', () => {
     expect(message.to).toBe(client.email);
     expect(message.text).toContain('Cancha 1');
     expect(message.text).toContain('2025-03-10');
-    expect(message.text).toContain('11:00');
-    expect(message.text).toContain('13:00');
+    expect(message.text).toContain('11:00 AM');
+    expect(message.text).toContain('1:00 PM');
     expect(message.text).toContain('L 1,000.00');
     expect(storedReservation(context.db, booked.id).reminded_at).toBe(NOW);
 
@@ -206,6 +207,28 @@ describe('scheduled job - email reminders (S15)', () => {
     expect(storedReservation(context.db, booked.id).reminded_at).toBeNull();
   });
 
+  it('writes the reminder hours on a 12-hour clock', async () => {
+    context = createTestContext();
+    const client = await registerClient(context);
+    const courtId = await firstCourtId(context);
+    await bookCourt(context, client.cookie, {
+      courtId,
+      date: DATE,
+      startHour: 20,
+      hours: 2,
+    });
+
+    const mailer = new RecordingMailer();
+    const result = await runScheduledJob(context.db, NOW, mailer);
+
+    expect(result).toEqual({ noShowsMarked: 0, remindersSent: 1, remindersSkipped: 0 });
+    const text = mailer.messages[0]!.text;
+    expect(text).toContain('8:00 PM');
+    expect(text).toContain('10:00 PM');
+    expect(text).not.toContain('20:00');
+    expect(text).not.toContain('22:00');
+  });
+
   it('does not remind a cancelled reservation', async () => {
     context = createTestContext();
     const client = await registerClient(context);
@@ -228,5 +251,28 @@ describe('scheduled job - email reminders (S15)', () => {
     const result = await runScheduledJob(context.db, NOW, new RecordingMailer());
     expect(result).toEqual({ noShowsMarked: 0, remindersSent: 0, remindersSkipped: 0 });
     expect(storedReservation(context.db, booked.id).reminded_at).toBeNull();
+  });
+});
+
+describe('mailer factory (S24)', () => {
+  it('falls back to the console transport and names the missing settings', () => {
+    const { mailer, status } = createMailer({ DATABASE_PATH: './data/canchas.sqlite' });
+
+    expect(mailer).toBeInstanceOf(ConsoleMailer);
+    expect(status.transport).toBe('console');
+    expect(status.from).toBe('');
+    expect(status.missing).toEqual(['SMTP_HOST', 'SMTP_USER', 'SMTP_PASS', 'MAIL_FROM']);
+  });
+
+  it('builds the smtp transport without connecting when all settings are present', () => {
+    const { mailer, status } = createMailer({
+      SMTP_HOST: 'smtp.example.com',
+      SMTP_USER: 'bot@example.com',
+      SMTP_PASS: 'secreto',
+      MAIL_FROM: 'reservas@example.com',
+    });
+
+    expect(status).toEqual({ transport: 'smtp', from: 'reservas@example.com', missing: [] });
+    expect(mailer).not.toBeInstanceOf(ConsoleMailer);
   });
 });

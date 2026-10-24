@@ -1,4 +1,9 @@
-import { HOUR_MS, formatVenueDate, venueHour } from '@canchas/core';
+import {
+  HOUR_MS,
+  formatHour12Range,
+  formatVenueDate,
+  venueHour,
+} from '@canchas/core';
 import { CURRENCY, VENUE_TIME_ZONE } from './config.ts';
 import type { Db } from './db/index.ts';
 import {
@@ -24,8 +29,12 @@ export interface JobResult {
 /** S15: reservations starting within this window from `now` get their reminder email. */
 export const REMINDER_WINDOW_MS = 24 * HOUR_MS;
 
-function hourLabel(epochMs: number): string {
-  return String(venueHour(epochMs, VENUE_TIME_ZONE)).padStart(2, '0');
+/** S21: the mail shows the reserved hours on a 12-hour clock, never the internal grid. */
+function hourRangeLabel(startAt: number, endAt: number): string {
+  return formatHour12Range(
+    venueHour(startAt, VENUE_TIME_ZONE),
+    venueHour(endAt, VENUE_TIME_ZONE),
+  );
 }
 
 function reminderMessage(candidate: ReminderCandidate): {
@@ -37,7 +46,7 @@ function reminderMessage(candidate: ReminderCandidate): {
   const text = [
     `Hola ${candidate.clientName}, te recordamos tu reserva en ${candidate.courtName}.`,
     `Fecha: ${day}`,
-    `Hora: ${hourLabel(candidate.startAt)}:00 - ${hourLabel(candidate.endAt)}:00 (${candidate.hours} h).`,
+    `Hora: ${hourRangeLabel(candidate.startAt, candidate.endAt)} (${candidate.hours} h).`,
     `Total a pagar en efectivo al llegar: ${formatMoney(candidate.totalCents, CURRENCY)}.`,
   ].join('\n');
   return { to: candidate.clientEmail, subject: `Recordatorio de reserva en ${candidate.courtName}`, text };
