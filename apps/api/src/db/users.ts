@@ -147,3 +147,31 @@ export function listClientFailureCounts(
     failures: Number(row.failures),
   }));
 }
+
+export function countClientsCreatedBetween(db: Db, from: number, to: number): number {
+  const row = oneRow<{ total: number }>(
+    db,
+    `SELECT COUNT(*) AS total FROM users
+     WHERE role = 'client' AND created_at >= ? AND created_at < ?`,
+    [from, to],
+  );
+  return row ? Number(row.total) : 0;
+}
+
+export interface PersonSummary {
+  id: string;
+  name: string;
+  phone: string;
+}
+
+export function findPeopleByIds(db: Db, ids: string[]): PersonSummary[] {
+  if (ids.length === 0) {
+    return [];
+  }
+  const placeholders = ids.map(() => '?').join(', ');
+  return allRows<{ id: string; name: string; phone: string }>(
+    db,
+    `SELECT id, name, phone FROM users WHERE id IN (${placeholders})`,
+    ids,
+  );
+}

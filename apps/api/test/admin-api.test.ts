@@ -55,6 +55,9 @@ async function bookFor(
     headers: { cookie },
     payload,
   });
+  if (response.statusCode !== 201) {
+    throw new Error(`booking failed: ${response.statusCode} ${response.body}`);
+  }
   return (response.json() as { reservation: { id: string } }).reservation.id;
 }
 
@@ -367,7 +370,142 @@ describe('whatsapp reminder', () => {
     expect(response.statusCode).toBe(200);
     const body = response.json() as { url: string };
     expect(body.url.startsWith('https://wa.me/50499998888?text=')).toBe(true);
-    expect(decodeURIComponent(body.url)).toContain('20:00');
-    expect(decodeURIComponent(body.url)).toContain('L 1,000.00');
+    const text = decodeURIComponent(body.url);
+    expect(text).toContain('8:00 PM - 10:00 PM');
+    expect(text).not.toContain('20:00');
+    expect(text).toContain('L 1,000.00');
+  });
+});
+
+describe('statistics', () => {
+  async function courtIds(context: TestContext) {
+    const response = await context.app.inject({ method: 'GET', url: '/api/courts' });
+    return (response.json() as { courts: Array<{ id: string }> }).courts.map((court) => court.id);
+  }
+
+  async function bookAt(
+    context: TestContext,
+    clientCookie: string,
+    courtId: string,
+    startHour: number,
+    hours: number,
+  ) {
+    return bookFor(context, clientCookie, { courtId, date: DATE, startHour, hours });
+  }
+
+  it('keeps statistics to the owner', async () => {
+    context = createTestContext();
+    const staff = await signInAs(context, 'staff', 'staff@example.com');
+
+    const anonymous = await context.app.inject({ method: 'GET', url: '/api/admin/stats' });
+    expect(anonymous.statusCode).toBe(401);
+
+    const refused = await get(context, '/api/admin/stats', staff);
+    expect(refused.statusCode).toBe(403);
+  });
+
+  it('reports an empty period without inventing numbers', async () => {
+    context = createTestContext();
+    const admin = await signInAs(context, 'admin', 'admin@example.com');
+
+    const response = await get(context, '/api/admin/stats?from=2025-03-01&to=2025-03-31', admin);
+    expect(response.statusCode).toBe(200);
+    const body = response.json() as {
+      totals: { reservations: number; expectedCents: number; collectedCents: number; occupancyRate: number };
+      daily: unknown[];
+      byHour: unknown[];
+      topClients: unknown[];
+    };
+    expect(body.totals.reservations).toBe(0);
+    expect(body.totals.expectedCents).toBe(0);
+    expect(body.totals.collectedCents).toBe(0);
+    expect(body.totals.occupancyRate).toBe(0);
+    expect(body.topClients).toEqual([]);
+    expect(Array.isArray(body.daily)).toBe(true);
+    expect(Array.isArray(body.byHour)).toBe(true);
+  });
+
+  it('counts reservations, hours, money and clients of the period', async () => {
+    context = createTestContext();
+    const admin = await signInAs(context, 'admin', 'admin@example.com');
+    const client = await registerClient(context, { name: 'Ana', phone: '9999-1111' });
+    const courts = await courtIds(context);
+
+    const first = await bookAt(context, client.cookie, courts[0]!, 20, 2);
+    await bookAt(context, client.cookie, courts[1]!, 8, 1);
+
+    // The client pays cash on arrival for the first reservation.
+    context.clock.now = zonedToEpoch(DATE, 20, 'America/Tegucigalpa') + 5 * 60_000;
+    await post(context, `/api/admin/reservations/${first}/arrive`, admin);
+
+    const response = await get(context, '/api/admin/stats?from=2025-03-01&to=2025-03-31', admin);
+    const body = response.json() as {
+      totals: {
+        reservations: number;
+        bookedHours: number;
+        expectedCents: number;
+        collectedCents: number;
+        clients: number;
+        newClients: number;
+        capacityHours: number;
+        occupancyRate: number;
+      };
+      byHour: Array<{ hour: number; reservations: number }>;
+      topClients: Array<{ name: string; reservations: number }>;
+    };
+
+    expect(body.totals.reservations).toBe(2);
+    expect(body.totals.bookedHours).toBe(3);
+    expect(body.totals.expectedCents).toBe(150_000);
+    expect(body.totals.collectedCents).toBe(100_000);
+    expect(body.totals.clients).toBe(1);
+    expect(body.totals.newClients).toBe(1);
+    // 3 courts x 24 hours x 31 days
+    expect(body.totals.capacityHours).toBe(3 * 24 * 31);
+    expect(body.totals.occupancyRate).toBeCloseTo(3 / (3 * 24 * 31), 5);
+    expect(body.byHour.find((entry) => entry.hour === 20)?.reservations).toBe(1);
+    expect(body.topClients[0]?.name).toBe('Ana');
+    expect(body.topClients[0]?.reservations).toBe(2);
+  });
+
+  it('separates cancellations and failures from real bookings', async () => {
+    context = createTestContext();
+    const admin = await signInAs(context, 'admin', 'admin@example.com');
+    const client = await registerClient(context, { phone: '9999-2222' });
+    const courts = await courtIds(context);
+
+    const cancelled = await bookAt(context, client.cookie, courts[0]!, 10, 1);
+    context.clock.now = zonedToEpoch(DATE, 10, 'America/Tegucigalpa') - 60 * 60_000;
+    await context.app.inject({
+      method: 'POST',
+      url: `/api/reservations/${cancelled}/cancel`,
+      headers: { cookie: client.cookie },
+    });
+
+    const response = await get(context, '/api/admin/stats?from=2025-03-01&to=2025-03-31', admin);
+    const body = response.json() as {
+      totals: { reservations: number; cancelled: number; lateCancels: number; expectedCents: number };
+    };
+    expect(body.totals.reservations).toBe(1);
+    expect(body.totals.cancelled).toBe(1);
+    expect(body.totals.lateCancels).toBe(1);
+    expect(body.totals.expectedCents).toBe(0);
+  });
+
+  it('subtracts closures from the available capacity', async () => {
+    context = createTestContext();
+    const admin = await signInAs(context, 'admin', 'admin@example.com');
+
+    await post(context, '/api/admin/closures', admin, {
+      date: DATE,
+      startHour: 8,
+      hours: 4,
+      courtId: null,
+      note: 'mantenimiento',
+    });
+
+    const response = await get(context, '/api/admin/stats?from=2025-03-12&to=2025-03-12', admin);
+    const body = response.json() as { totals: { capacityHours: number } };
+    expect(body.totals.capacityHours).toBe(3 * 24 - 3 * 4);
   });
 });

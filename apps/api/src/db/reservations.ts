@@ -293,3 +293,18 @@ export function listAgendaBetween(
     clientPhone: row.client_phone,
   }));
 }
+
+/** Every reservation that starts inside a period, whatever its status. */
+export function listReservationsStartingInPeriod(
+  db: Db,
+  from: number,
+  to: number,
+): Reservation[] {
+  return allRows<ReservationRow>(
+    db,
+    `SELECT * FROM reservations
+     WHERE start_at >= ? AND start_at < ?
+     ORDER BY start_at`,
+    [from, to],
+  ).map(toReservation);
+}

@@ -1,6 +1,14 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
-import { HOUR_MS, addDays, formatVenueDate, isVenueDate, zonedToEpoch } from '@canchas/core';
+import {
+  HOUR_MS,
+  addDays,
+  formatHour12Range,
+  formatVenueDate,
+  isVenueDate,
+  venueHour,
+  zonedToEpoch,
+} from '@canchas/core';
 import { apiConfig } from '../config.ts';
 import type { Db } from '../db/index.ts';
 import { findSessionUser } from '../auth.ts';
@@ -10,6 +18,7 @@ import { createBlock, getBlock, listActiveBlocks, revokeBlock } from '../db/bloc
 import { createClosure, deleteClosure, getClosure, listUpcomingClosures } from '../db/closures.ts';
 import { createCourt, getCourt, listCourts, renameCourt, setCourtActive, updateCourtPrice } from '../db/courts.ts';
 import { formatMoney } from '../money.ts';
+import { computeStats } from '../stats.ts';
 import { reject, tokenFrom } from '../http.ts';
 
 export interface AdminDeps {
@@ -53,6 +62,11 @@ const courtPatchSchema = z.object({
 const courtCreateSchema = z.object({
   name: z.string().trim().min(1).max(60),
   pricePerHourCents: z.number().int().min(0),
+});
+
+const statsQuerySchema = z.object({
+  from: z.string().refine(isVenueDate, 'invalid_date').optional(),
+  to: z.string().refine(isVenueDate, 'invalid_date').optional(),
 });
 
 const closureSchema = z.object({
@@ -192,6 +206,21 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
     }
     clearFailure(db, parsed.data.id);
     return reply.code(200).send({ reservation: getReservation(db, parsed.data.id) });
+  });
+
+  app.get('/api/admin/stats', async (request, reply) => {
+    if (!requireAdmin(request, reply)) return reply;
+    const parsed = statsQuerySchema.safeParse(request.query);
+    if (!parsed.success) {
+      return reject(reply, 400, 'invalid_input');
+    }
+    const timeZone = apiConfig.venueTimeZone;
+    const to = parsed.data.to ?? formatVenueDate(now(), timeZone);
+    const from = parsed.data.from ?? addDays(to, -29);
+    if (from > to) {
+      return reject(reply, 400, 'invalid_input');
+    }
+    return reply.code(200).send(computeStats(db, { from, to, timeZone }));
   });
 
   app.get('/api/admin/clients', async (request, reply) => {
@@ -386,29 +415,15 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
 
     const timeZone = apiConfig.venueTimeZone;
     const day = formatVenueDate(reservation.startAt, timeZone);
-    const startLabel = String(
-      Number(
-        new Intl.DateTimeFormat('en-US', {
-          timeZone,
-          hour: '2-digit',
-          hour12: false,
-        }).format(reservation.startAt),
-      ),
-    ).padStart(2, '0');
-    const endLabel = String(
-      Number(
-        new Intl.DateTimeFormat('en-US', {
-          timeZone,
-          hour: '2-digit',
-          hour12: false,
-        }).format(reservation.endAt),
-      ),
-    ).padStart(2, '0');
+    const hourRange = formatHour12Range(
+      venueHour(reservation.startAt, timeZone),
+      venueHour(reservation.endAt, timeZone),
+    );
 
     const text = [
       `Hola ${client.name}, te recordamos tu reserva en ${court.name}.`,
       `Fecha: ${day}`,
-      `Hora: ${startLabel}:00 - ${endLabel}:00 (${reservation.hours} h).`,
+      `Hora: ${hourRange} (${reservation.hours} h).`,
       `Total a pagar en efectivo al llegar: ${formatMoney(reservation.totalCents, apiConfig.currency)}.`,
     ].join('\n');
 
