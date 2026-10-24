@@ -50,6 +50,103 @@ disponibles, los precios por hora, los dias que no estaran abiertos").
 S20. There is no maximum number of consecutive hours per reservation ("no hay un limite
 de horas a poder reservar"); only availability limits it.
 
+S21. Every hour shown to a person uses a 12-hour clock with AM/PM: the board, the
+selection summary, my reservations, the panel, the WhatsApp message and the reminder email.
+Internally the grid stays 24 hours; only presentation changes.
+S22. The public page must read as a finished product, not an empty demo: venue identity in
+the header, a strip of real venue facts, a legend for the board states, and loading, empty
+and error states that say what to do next.
+S23. The owner has a statistics view for a chosen period: reservations, cancellations,
+no-shows, clients (total and new), cash collected, expected revenue, occupancy rate,
+reservations per day, demand by hour and the clients with the most reservations.
+S24. Reminders are sent by the system on a schedule, without anyone running a command.
+When SMTP settings are present the mail leaves through them; otherwise the message is logged
+and the settings that are missing are reported.
+
+## Tasks
+
+| ID | Specs | Route | Commit |
+| --- | --- | --- | --- |
+| T1 | — | Scaffold npm workspaces monorepo: `packages/core`, `apps/api`, `apps/web`, Vitest, TypeScript strict | done — 8a6206d |
+| T2 | S3, S12, S18, S20 | Core TDD: venue time zone helpers, 24-slot grid, availability with reservations crossing midnight and closures | done — 4fc12c3 |
+| T3 | S4, S6, S7, S8, S9, S16 | Core TDD: booking validation, price snapshot, cancellation window and failure-mark evaluation | done — 4fc12c3 |
+| T4 | S1, S4, S11, S12, S13, S14 | API: schema, migration, seed (3 courts, HNL prices, 24h), repositories | done — fdbdc93 |
+| T5 | S1, S14 | API: register/login with email + password, sessions, roles admin/staff | done — b5328c9 |
+| T6 | S2, S3, S4, S11, S16, S20 | API: public availability endpoint and transactional booking | done — b5328c9 |
+| T7 | S6, S7, S8, S9, S10, S12, S15, S19 | API: panel endpoints (courts, prices, closures, arrival, failures, penalties, blocks, WhatsApp link) | done — 8e68ba1 |
+| T8 | S7, S15 | API: scheduled job marking no-shows, plus one email reminder per reservation | done — 5a45381 |
+| T9 | S2, S3, S4, S5 | Web: PWA client flow date -> free hours -> range -> login -> confirm, and my reservations with cancel | done — 06985a4 |
+| T10 | S10, S12, S14, S19 | Web: panel for admin and staff | done — b5c32f3 |
+
+Round two (2026-10-23), requested by the owner:
+
+| ID | Specs | Route | Commit |
+| --- | --- | --- | --- |
+| T11 | S21 | 12-hour clock: pure formatter in core, web formatting, WhatsApp and reminder text | done — 61d299f, fe16c52, e7a5202 |
+| T12 | S22 | Visual pass: venue identity, facts strip, board legend and day bands, richer states | done — e7a5202 |
+| T13 | S23 | Statistics endpoint and panel tab | done — fe16c52, e7a5202 |
+| T14 | S24 | Scheduled reminders inside the API process with an SMTP mailer | done — 0b1fab3 |
+| T15 | — | Verification: tests, typecheck, build and browser smoke | done — verified in e7a5202 |
+
+## Log` before acting on any task in this document.
+
+## Specs
+
+S1. Registration uses email + password. Name and phone are required at registration;
+the phone feeds reminders and blocking.
+S2. Anyone can see availability for a chosen date without an account. Booking requires
+an account ("sin solo podra ver pero no reservar").
+S3. Time grid is fixed 60-minute blocks, 24 slots per day, 00:00 through 23:59, because
+"es un local 24 horas". Flow: pick date -> see free hours -> select a consecutive range
+("de tal hora a tal hora").
+S4. Price is per court per hour, set by the owner. Total = booked hours x court price.
+S5. Payment is cash at the venue on arrival; the app never charges.
+S6. Cancelling 3 hours or more before the reserved hour has no consequence. Cancelling
+inside that window produces an automatic failure mark. Boundary: exactly 3 hours before
+is still free.
+S7. A reservation that reaches its end without an arrival record produces an automatic
+failure mark.
+S8. When staff collects the cash they mark "arrived"; the reservation counts as fulfilled
+and never produces a failure mark.
+S9. A failure mark is not a penalty. Penalties (N days without booking) are applied only
+by the owner, who can also remove them at any time.
+S10. Panel shows marked clients, how many times each failed in the month, lets the owner
+set N penalty days, remove a penalty, and see court availability and reservations.
+S11. A block applies to the phone number and to the account, so a new account with the
+same phone cannot book.
+S12. The owner closes the venue for a date range or an hour range; those slots cannot be
+booked ("que no se puede reservar de cierta ora a cierta hora o de cierta fecha a cierta
+fecha").
+S13. Changing a price never alters existing reservations; the price is snapshotted at
+booking time.
+S14. Roles: admin (everything) and staff (agenda, arrivals, failure marks, closures; no
+prices, no accounts).
+S15. Reminder is sent automatically by email; a manual WhatsApp link is available in the
+panel. No WhatsApp API in v1.
+S16. Limits live in configuration, not in the UI: maximum advance booking 30 days,
+maximum 2 active reservations per client.
+S17. Development runs locally; deployment is decided later.
+S18. Venue facts: Honduras, currency HNL (minor unit = centavos), time zone
+`America/Tegucigalpa`, 3 courts at start, 24h schedule.
+S19. The owner can change the number of courts, the price per hour and the closed days
+from the panel ("el dueno puede modificar estas aspectos como el numero de canchas
+disponibles, los precios por hora, los dias que no estaran abiertos").
+S20. There is no maximum number of consecutive hours per reservation ("no hay un limite
+de horas a poder reservar"); only availability limits it.
+
+S21. Every hour shown to a person uses a 12-hour clock with AM/PM: the board, the
+selection summary, my reservations, the panel, the WhatsApp message and the reminder email.
+Internally the grid stays 24 hours; only presentation changes.
+S22. The public page must read as a finished product, not an empty demo: venue identity in
+the header, a strip of real venue facts, a legend for the board states, and loading, empty
+and error states that say what to do next.
+S23. The owner has a statistics view for a chosen period: reservations, cancellations,
+no-shows, clients (total and new), cash collected, expected revenue, occupancy rate,
+reservations per day, demand by hour and the clients with the most reservations.
+S24. Reminders are sent by the system on a schedule, without anyone running a command.
+When SMTP settings are present the mail leaves through them; otherwise the message is logged
+and the settings that are missing are reported.
+
 ## Tasks
 
 | ID | Specs | Route | Commit |
@@ -220,3 +317,26 @@ A browser smoke run (Playwright, not committed) exercised board, range selection
 booking, cancellation and every panel tab against a real server.
 L22 (known gaps, not part of the accepted scope): no email provider, no deployment, no rate
 limit on login, and the browser smoke run lives outside the repository.
+
+L23 (user, verbatim, round two): funciona, me gusta, pero quiero que cambias a el estilo de
+hora en vez de un formato de 24 horas a uno de 12 am y pm, tambien quiero que se vea mas
+profecional la pagina, porque no se se mira como algo vacia y muy cencilla, talvez para el
+administrador se podria agregar un apartado de estadisticas, no se numero de clientes, no se
+analiza que estadisticas se pueden sacar y me gustaria que los recordatorios fuean tambien
+automaticos, que sea el sistema quien los mande, tambien dime que mas mejoras se podrian hacer
+si tienes ideas
+
+L24 (implementation): real delivery uses nodemailer through SMTP_HOST, SMTP_USER,
+SMTP_PASS and MAIL_FROM, with SMTP_PORT and SMTP_SECURE optional. Without them the message
+is logged and the startup line names what is missing, so development needs no mailbox.
+Reminders run inside the API process every 15 minutes (REMINDER_INTERVAL_MS).
+L25 (implementation): statistics default to the last 30 days; occupancy divides booked hours
+by active courts x period hours minus closure hours; cash collected counts only reservations
+marked as arrived, so expected and collected are always shown together.
+L26 (implementation): the board opens at the current hour and keeps the court column stuck
+while hours scroll; the home page gained a facts strip, day bands, a legend and a how-it-works
+sequence, which is what the owner called too empty.
+L27 (verification): 140 tests green (58 core, 71 API, 11 web), typecheck and build clean, and a
+browser run over a demo database with 75 seeded reservations reviewed at 1440 px and 390 px.
+L28 (pending): real email delivery needs the four SMTP variables, and deployment is still
+undecided; both are the owner's call, not implementation gaps.
