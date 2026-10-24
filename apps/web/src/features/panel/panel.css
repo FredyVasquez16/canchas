@@ -47,3 +47,7 @@
     min-width: 100%;
   }
 }
+
+.chart__bar--peak {
+  background: var(--flood);
+}

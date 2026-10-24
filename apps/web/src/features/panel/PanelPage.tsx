@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
-import { formatVenueDate } from '@canchas/core';
+import { addDays, formatHour12, formatVenueDate } from '@canchas/core';
 import {
   api,
   errorMessage,
@@ -8,15 +8,25 @@ import {
   type Closure,
   type Court,
   type PublicConfig,
+  type StatsResponse,
 } from '../../lib/api.ts';
-import { dayText, formatMoney, monthKey, rangeText, todayInVenue } from '../../lib/format.ts';
+import {
+  dayText,
+  formatMoney,
+  monthKey,
+  percent,
+  rangeText,
+  shortDate,
+  todayInVenue,
+} from '../../lib/format.ts';
 import { useSession } from '../../lib/session.tsx';
 import './panel.css';
 
-type TabId = 'agenda' | 'cierres' | 'canchas' | 'clientes';
+type TabId = 'agenda' | 'stats' | 'cierres' | 'canchas' | 'clientes';
 
 const TABS: Array<{ id: TabId; label: string; adminOnly: boolean }> = [
   { id: 'agenda', label: 'Día de hoy', adminOnly: false },
+  { id: 'stats', label: 'Estadísticas', adminOnly: true },
   { id: 'cierres', label: 'Cierres', adminOnly: false },
   { id: 'canchas', label: 'Canchas y precios', adminOnly: true },
   { id: 'clientes', label: 'Clientes', adminOnly: true },
@@ -816,6 +826,209 @@ function ClientsTab({ config }: { config: PublicConfig }) {
   );
 }
 
+
+const RANGES = [
+  { days: 7, label: '7 días' },
+  { days: 30, label: '30 días' },
+  { days: 90, label: '90 días' },
+] as const;
+
+function StatsTab({ config }: { config: PublicConfig }) {
+  const [days, setDays] = useState<number>(30);
+  const [stats, setStats] = useState<StatsResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    const to = todayInVenue(config.venueTimeZone);
+    const from = addDays(to, -(days - 1));
+    try {
+      setStats(await api.stats(from, to));
+      setError(null);
+    } catch (caught) {
+      setError(errorMessage(caught));
+    }
+  }, [days, config.venueTimeZone]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const totals = stats?.totals;
+  const pendingCents = totals ? Math.max(0, totals.expectedCents - totals.collectedCents) : 0;
+
+  const dailyMax = Math.max(1, ...(stats?.daily.map((point) => point.reservations) ?? [1]));
+  const hourMax = Math.max(1, ...(stats?.byHour.map((point) => point.reservations) ?? [1]));
+  const peakHours = new Set(
+    [...(stats?.byHour ?? [])]
+      .sort((left, right) => right.reservations - left.reservations)
+      .slice(0, 3)
+      .filter((point) => point.reservations > 0)
+      .map((point) => point.hour),
+  );
+
+  return (
+    <div className="stack">
+      <div className="row">
+        <span className="segmented" role="group" aria-label="Período de las estadísticas">
+          {RANGES.map((range) => (
+            <button
+              key={range.days}
+              type="button"
+              className="segmented__btn"
+              aria-pressed={days === range.days}
+              onClick={() => setDays(range.days)}
+            >
+              {range.label}
+            </button>
+          ))}
+        </span>
+        {stats !== null && (
+          <span className="hint">
+            del {stats.from} al {stats.to}
+          </span>
+        )}
+      </div>
+
+      {error && (
+        <div className="notice notice--error" role="alert">
+          <p>{error}</p>
+        </div>
+      )}
+
+      {totals && (
+        <section className="kpis" aria-label="Indicadores del período">
+          <article className="kpi">
+            <span className="kpi__label">Reservas</span>
+            <strong className="kpi__value">{totals.reservations}</strong>
+            <span className="kpi__hint">
+              {totals.cancelled} canceladas · {totals.bookedHours} horas vendidas
+            </span>
+          </article>
+          <article className="kpi">
+            <span className="kpi__label">Ocupación del complejo</span>
+            <strong className="kpi__value">{percent(totals.occupancyRate)}</strong>
+            <span className="kpi__hint">
+              {totals.bookedHours} de {Math.round(totals.capacityHours)} horas disponibles
+            </span>
+          </article>
+          <article className="kpi">
+            <span className="kpi__label">Cobrado en efectivo</span>
+            <strong className="kpi__value">
+              {formatMoney(totals.collectedCents, config.currency)}
+            </strong>
+            <span className="kpi__hint">{formatMoney(pendingCents, config.currency)} por cobrar</span>
+          </article>
+          <article className="kpi">
+            <span className="kpi__label">Faltas registradas</span>
+            <strong className="kpi__value">{totals.noShows + totals.lateCancels}</strong>
+            <span className="kpi__hint">
+              {totals.noShows} no llegaron · {totals.lateCancels} cancelaron tarde
+            </span>
+          </article>
+          <article className="kpi">
+            <span className="kpi__label">Clientes</span>
+            <strong className="kpi__value">{totals.clients}</strong>
+            <span className="kpi__hint">{totals.newClients} cuentas nuevas</span>
+          </article>
+        </section>
+      )}
+
+      {stats !== null && stats.daily.length > 0 && (
+        <Section title="Reservas por día" hint="Cada barra es un día del período.">
+          <div className="chart">
+            <div className="chart__bars">
+              {stats.daily.map((point) => (
+                <div
+                  key={point.date}
+                  className="chart__col"
+                  title={`${point.date}: ${point.reservations} reservas`}
+                >
+                  <div
+                    className="chart__bar"
+                    style={{ height: `${Math.max(1, (point.reservations / dailyMax) * 100)}%` }}
+                  />
+                </div>
+              ))}
+            </div>
+            <div className="chart__axis">
+              <span>{shortDate(stats.daily[0]!.date, config.venueTimeZone)}</span>
+              <span>
+                {shortDate(stats.daily[Math.floor(stats.daily.length / 2)]!.date, config.venueTimeZone)}
+              </span>
+              <span>
+                {shortDate(stats.daily[stats.daily.length - 1]!.date, config.venueTimeZone)}
+              </span>
+            </div>
+          </div>
+        </Section>
+      )}
+
+      {stats !== null && (
+        <Section title="Demanda por hora" hint="A qué horas se vende más la cancha.">
+          <div className="chart">
+            <div className="chart__bars" style={{ height: '5.5rem' }}>
+              {stats.byHour.map((point) => (
+                <div
+                  key={point.hour}
+                  className="chart__col"
+                  title={`${formatHour12(point.hour)}: ${point.reservations} reservas`}
+                >
+                  <div
+                    className={
+                      peakHours.has(point.hour) ? 'chart__bar chart__bar--peak' : 'chart__bar'
+                    }
+                    style={{ height: `${Math.max(1, (point.reservations / hourMax) * 100)}%` }}
+                  />
+                </div>
+              ))}
+            </div>
+            <div className="chart__axis">
+              <span>12 AM</span>
+              <span>6 AM</span>
+              <span>12 PM</span>
+              <span>6 PM</span>
+              <span>11 PM</span>
+            </div>
+          </div>
+        </Section>
+      )}
+
+      {stats !== null && (
+        <Section title="Clientes con más reservas" hint="En el período elegido.">
+          {stats.topClients.length === 0 ? (
+            <p className="empty">Todavía no hay reservas en este período.</p>
+          ) : (
+            <div className="table-scroll">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Cliente</th>
+                    <th>Teléfono</th>
+                    <th>Reservas</th>
+                    <th>Faltas</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {stats.topClients.map((client) => (
+                    <tr key={client.id}>
+                      <td>{client.name}</td>
+                      <td>{client.phone}</td>
+                      <td className="num">{client.reservations}</td>
+                      <td className="num">{client.failures}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Section>
+      )}
+
+      {stats === null && error === null && <p className="muted">Calculando estadísticas…</p>}
+    </div>
+  );
+}
+
 export function PanelPage() {
   const { user, loading } = useSession();
   const [config, setConfig] = useState<PublicConfig | null>(null);
@@ -908,6 +1121,7 @@ export function PanelPage() {
 
       <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
         {tab === 'agenda' && <AgendaTab config={config} />}
+        {tab === 'stats' && isAdmin && <StatsTab config={config} />}
         {tab === 'cierres' && <ClosuresTab config={config} />}
         {tab === 'canchas' && isAdmin && <CourtsTab config={config} />}
         {tab === 'clientes' && isAdmin && <ClientsTab config={config} />}

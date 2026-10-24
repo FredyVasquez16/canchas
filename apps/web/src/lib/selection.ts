@@ -1,3 +1,5 @@
+import { formatHour12Range } from '@canchas/core';
+
 export interface SlotSelection {
   courtId: string;
   /** First booked hour, 0-23. */
@@ -42,14 +44,10 @@ export function selectionHours(selection: SlotSelection): number[] {
   return Array.from({ length: selection.hours }, (_, index) => selection.start + index);
 }
 
-function pad(value: number): string {
-  return String(value).padStart(2, '0');
-}
-
 export function selectionLabel(selection: SlotSelection): string {
   const start = selection.start % 24;
   const end = (selection.start + selection.hours) % 24;
-  return `${pad(start)}:00 - ${pad(end)}:00`;
+  return formatHour12Range(start, end);
 }
 
 export function selectionTotalCents(

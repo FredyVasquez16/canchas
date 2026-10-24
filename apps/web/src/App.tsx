@@ -41,7 +41,8 @@ export function App() {
     <div className="app">
       <header className="app-header">
         <a className="app-header__brand" href="#/">
-          {VENUE_NAME}
+          <strong>{VENUE_NAME}</strong>
+          <span className="app-header__tagline">Cancha de fútbol · abierto 24 horas</span>
         </a>
         <nav className="app-nav" aria-label="Navegación principal">
           <NavLink href="#/" label="Reservar" active={route === ''} />
@@ -81,8 +82,10 @@ export function App() {
       </main>
 
       <footer className="app-footer">
-        {VENUE_NAME} · abierto 24 horas · pago en efectivo al llegar · cancelación sin costo hasta 3
-        horas antes
+        <span>{VENUE_NAME} · reservas en línea sin llamadas ni mensajes</span>
+        <span className="app-footer__note">
+          pago en efectivo al llegar · cancelación sin costo hasta 3 horas antes
+        </span>
       </footer>
     </div>
   );

@@ -1,4 +1,11 @@
-import { addDays, formatVenueDate, venueHour, zonedToEpoch } from '@canchas/core';
+import {
+  addDays,
+  formatHour12,
+  formatHour12Range,
+  formatVenueDate,
+  venueHour,
+  zonedToEpoch,
+} from '@canchas/core';
 
 const SYMBOLS: Record<string, string> = { HNL: 'L' };
 
@@ -14,12 +21,13 @@ export function todayInVenue(timeZone: string): string {
   return formatVenueDate(Date.now(), timeZone);
 }
 
+/** S21: people read 12-hour hours; the grid stays 24 hours internally. */
 export function hourText(epochMs: number, timeZone: string): string {
-  return `${String(venueHour(epochMs, timeZone)).padStart(2, '0')}:00`;
+  return formatHour12(venueHour(epochMs, timeZone));
 }
 
 export function rangeText(startAt: number, endAt: number, timeZone: string): string {
-  return `${hourText(startAt, timeZone)} - ${hourText(endAt, timeZone)}`;
+  return formatHour12Range(venueHour(startAt, timeZone), venueHour(endAt, timeZone));
 }
 
 export function dayText(date: string, timeZone: string): string {
@@ -61,6 +69,22 @@ export function upcomingDays(
       relative: index === 0 ? 'hoy' : index === 1 ? 'mañana' : null,
     };
   });
+}
+
+export function percent(ratio: number): string {
+  return `${(ratio * 100).toFixed(ratio < 0.1 ? 1 : 0)} %`;
+}
+
+/** `2026-09-24` -> `24 sep`, for chart axes and dense tables. */
+export function shortDate(date: string, timeZone: string): string {
+  const noon = zonedToEpoch(date, 12, timeZone);
+  return new Intl.DateTimeFormat('es-HN', {
+    timeZone,
+    day: 'numeric',
+    month: 'short',
+  })
+    .format(noon)
+    .replace('.', '');
 }
 
 export function monthKey(date: string): string {

@@ -68,12 +68,16 @@ describe('selectionHours', () => {
 });
 
 describe('selectionLabel', () => {
-  it('shows the start and the end of the range', () => {
-    expect(selectionLabel({ courtId: 'court-a', start: 20, hours: 2 })).toBe('20:00 - 22:00');
+  it('shows the range on a 12 hour clock', () => {
+    expect(selectionLabel({ courtId: 'court-a', start: 20, hours: 2 })).toBe('8:00 PM - 10:00 PM');
+  });
+
+  it('keeps each meridiem when the range crosses noon', () => {
+    expect(selectionLabel({ courtId: 'court-a', start: 11, hours: 2 })).toBe('11:00 AM - 1:00 PM');
   });
 
   it('wraps past midnight for a late range', () => {
-    expect(selectionLabel({ courtId: 'court-a', start: 23, hours: 2 })).toBe('23:00 - 01:00');
+    expect(selectionLabel({ courtId: 'court-a', start: 23, hours: 2 })).toBe('11:00 PM - 1:00 AM');
   });
 });
 

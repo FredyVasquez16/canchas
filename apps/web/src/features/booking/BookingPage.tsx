@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { formatHour12Short, formatVenueDate, venueHour } from '@canchas/core';
 import {
   api,
   errorMessage,
@@ -18,6 +19,9 @@ import { useSession } from '../../lib/session.tsx';
 import './booking.css';
 
 const PENDING_KEY = 'pending-booking';
+
+/** The four blocks of a 24 hour venue, used as board headers. */
+const DAY_BANDS = ['madrugada', 'mañana', 'tarde', 'noche'];
 
 /** Shape stored in sessionStorage when a guest selection is sent to login. */
 interface PendingBooking {
@@ -125,6 +129,8 @@ export function BookingPage() {
   const [notice, setNotice] = useState<Notice | null>(null);
   const [confirming, setConfirming] = useState(false);
   const availRequest = useRef(0);
+  const boardRef = useRef<HTMLDivElement>(null);
+  const scrolledFor = useRef<string | null>(null);
 
   function loadConfig(): void {
     setConfigStatus('loading');
@@ -277,6 +283,25 @@ export function BookingPage() {
     }
   }
 
+  // A 24 hour board is wider than a phone: start the view at the current hour,
+  // so the client does not have to scroll through the whole night to find it.
+  useEffect(() => {
+    const scroller = boardRef.current;
+    if (!scroller || !availability || scrolledFor.current === availability.date) {
+      return;
+    }
+    scrolledFor.current = availability.date;
+    const headerCell = scroller.querySelector<HTMLElement>('.board__hour');
+    const courtCell = scroller.querySelector<HTMLElement>('.board__court');
+    const cellWidth = headerCell?.getBoundingClientRect().width ?? 34;
+    const stickyWidth = courtCell?.getBoundingClientRect().width ?? 112;
+    const now = Date.now();
+    const isToday = formatVenueDate(now, availability.timeZone) === availability.date;
+    const hour = isToday ? venueHour(now, availability.timeZone) : 0;
+    // Keep the sticky court column in place and show the current hour right after it.
+    scroller.scrollLeft = Math.max(0, (hour - 1) * (cellWidth + 4.5) - stickyWidth);
+  }, [availability]);
+
   const timeZone = config?.venueTimeZone ?? null;
   const currency = availability?.currency ?? config?.currency ?? 'HNL';
   const days = useMemo(
@@ -328,6 +353,39 @@ export function BookingPage() {
 
       {configStatus === 'ready' && timeZone !== null && (
         <Fragment>
+          {availability !== null && availability.courts.length > 0 && (
+            <dl className="facts">
+              <div className="facts__item">
+                <dt className="facts__label">Canchas</dt>
+                <dd className="facts__value">{availability.courts.length}</dd>
+              </div>
+              <div className="facts__item">
+                <dt className="facts__label">Cada turno</dt>
+                <dd className="facts__value">1 hora</dd>
+              </div>
+              <div className="facts__item">
+                <dt className="facts__label">Desde</dt>
+                <dd className="facts__value">
+                  {formatMoney(
+                    Math.min(...availability.courts.map((entry) => entry.court.pricePerHourCents)),
+                    currency,
+                  )}{' '}
+                  por hora
+                </dd>
+              </div>
+              <div className="facts__item">
+                <dt className="facts__label">Pago</dt>
+                <dd className="facts__value">en efectivo al llegar</dd>
+              </div>
+              <div className="facts__item">
+                <dt className="facts__label">Cancelación</dt>
+                <dd className="facts__value">
+                  gratis hasta {config?.cancelWindowHours ?? 3} h antes
+                </dd>
+              </div>
+            </dl>
+          )}
+
           <div className="date-strip" role="group" aria-label="Elegir el día de la reserva">
             {days.map((day) => (
               <button
@@ -389,7 +447,7 @@ export function BookingPage() {
             availability !== null &&
             availability.courts.length > 0 && (
               <div className="board">
-                <div className="board__scroll">
+                <div className="board__scroll" ref={boardRef}>
                   <div
                     className="board__grid"
                     role="group"
@@ -403,9 +461,17 @@ export function BookingPage() {
                       <div className="board__court">
                         <span className="sr-only">Hora</span>
                       </div>
+                      {DAY_BANDS.map((band) => (
+                        <div key={band} className="board__band">
+                          {band}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="board__row">
+                      <div className="board__court" aria-hidden="true" />
                       {headerSlots.map((slot) => (
                         <div key={slot.hour} className="board__hour" title={slot.label}>
-                          {String(slot.hour).padStart(2, '0')}
+                          {formatHour12Short(slot.hour)}
                         </div>
                       ))}
                     </div>
@@ -428,6 +494,28 @@ export function BookingPage() {
                     ))}
                   </div>
                 </div>
+                <ul className="board__legend">
+                  <li>
+                    <span className="legend__swatch legend__swatch--available" aria-hidden="true" />
+                    libre
+                  </li>
+                  <li>
+                    <span className="legend__swatch legend__swatch--selected" aria-hidden="true" />
+                    tu selección
+                  </li>
+                  <li>
+                    <span className="legend__swatch legend__swatch--occupied" aria-hidden="true" />
+                    ocupada
+                  </li>
+                  <li>
+                    <span className="legend__swatch legend__swatch--closed" aria-hidden="true" />
+                    cerrada
+                  </li>
+                  <li>
+                    <span className="legend__swatch legend__swatch--past" aria-hidden="true" />
+                    hora pasada
+                  </li>
+                </ul>
               </div>
             )}
 
@@ -466,6 +554,43 @@ export function BookingPage() {
               </div>
             </div>
           )}
+          <section className="steps" aria-labelledby="how-it-works">
+            <h2 id="how-it-works" className="panel__title">
+              Cómo funciona
+            </h2>
+            <ol className="steps__list">
+              <li className="steps__item">
+                <span className="steps__number" aria-hidden="true">
+                  1
+                </span>
+                <span className="steps__title">Elige la cancha y la hora</span>
+                <p className="steps__text">
+                  El tablero muestra las horas libres de cada cancha. Toca una hora y, si quieres
+                  más, toca la siguiente.
+                </p>
+              </li>
+              <li className="steps__item">
+                <span className="steps__number" aria-hidden="true">
+                  2
+                </span>
+                <span className="steps__title">Confirma con tu cuenta</span>
+                <p className="steps__text">
+                  Ver horarios es libre. Solo necesitas una cuenta para reservar, con tu nombre y
+                  tu teléfono.
+                </p>
+              </li>
+              <li className="steps__item">
+                <span className="steps__number" aria-hidden="true">
+                  3
+                </span>
+                <span className="steps__title">Paga en efectivo al llegar</span>
+                <p className="steps__text">
+                  No se cobra nada en línea. Si no puedes venir, cancela hasta{' '}
+                  {config?.cancelWindowHours ?? 3} horas antes y no queda registrado nada.
+                </p>
+              </li>
+            </ol>
+          </section>
         </Fragment>
       )}
     </section>

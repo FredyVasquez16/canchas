@@ -75,6 +75,28 @@ export interface Agenda {
   closures: Closure[];
 }
 
+export interface StatsResponse {
+  from: string;
+  to: string;
+  timeZone: string;
+  totals: {
+    reservations: number;
+    cancelled: number;
+    lateCancels: number;
+    noShows: number;
+    bookedHours: number;
+    capacityHours: number;
+    occupancyRate: number;
+    expectedCents: number;
+    collectedCents: number;
+    clients: number;
+    newClients: number;
+  };
+  daily: Array<{ date: string; reservations: number; bookedHours: number; collectedCents: number }>;
+  byHour: Array<{ hour: number; reservations: number }>;
+  topClients: Array<{ id: string; name: string; phone: string; reservations: number; failures: number }>;
+}
+
 export interface ClientBlock {
   id: string;
   userId: string | null;
@@ -213,6 +235,9 @@ export const api = {
     request<{ ok: boolean }>(`/admin/blocks/${blockId}`, { method: 'DELETE' }),
 
   adminCourts: () => request<{ courts: Court[] }>('/admin/courts'),
+
+  stats: (from: string, to: string) =>
+    request<StatsResponse>(`/admin/stats?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`),
 
   createCourt: (input: { name: string; pricePerHourCents: number }) =>
     request<{ court: Court }>('/admin/courts', jsonBody(input)),
