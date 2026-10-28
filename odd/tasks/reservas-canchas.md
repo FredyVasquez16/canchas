@@ -4,7 +4,14 @@ Feature: replace the manual WhatsApp booking flow with a public PWA that shows r
 availability and lets a client book a court without staff intervention, plus an
 owner/staff panel for court setup, closures, attendance and penalties.
 
-Read until `## Log` before acting on any task in this document.
+Read until `Round three (2026-10-28), requested by the owner:
+
+| ID | Specs | Route | Commit |
+| --- | --- | --- | --- |
+| T16 | S25, S26 | Landing page at `#/` with a single large action, live free hours, facts and a closing sequence; the board moves to `#/reservar` | done — 302ce16 |
+| T17 | S26 | Header navigation centered, no text under the brand | done — 302ce16 |
+
+## Log` before acting on any task in this document.
 
 ## Specs
 
@@ -59,6 +66,10 @@ and error states that say what to do next.
 S23. The owner has a statistics view for a chosen period: reservations, cancellations,
 no-shows, clients (total and new), cash collected, expected revenue, occupancy rate,
 reservations per day, demand by hour and the clients with the most reservations.
+S25. The app opens on a landing page whose job is to send people to book: one large
+primary action above everything else, live free hours of today, and the venue facts.
+S26. The header keeps the venue name on the left, the navigation links centered and the
+session action on the right, with no text under the brand.
 S24. Reminders are sent by the system on a schedule, without anyone running a command.
 When SMTP settings are present the mail leaves through them; otherwise the message is logged
 and the settings that are missing are reported.
@@ -340,3 +351,21 @@ L27 (verification): 140 tests green (58 core, 71 API, 11 web), typecheck and bui
 browser run over a demo database with 75 seeded reservations reviewed at 1440 px and 390 px.
 L28 (pending): real email delivery needs the four SMTP variables, and deployment is still
 undecided; both are the owner's call, not implementation gaps.
+
+L29 (user, verbatim, round three): ahita no estan encendido el backend y el frotend, quiero
+que los enciendas para poder usar la app, y quiero que cambiemos algunas cosas, por ejemplo en
+el nacvar pusiste los enlaces hasta el derecha quiero que esten enmedio, y a la iz2quierda
+debajo de camchas p[usiste untexto, no quiero que le ponghas nada debajo de el, quiero tambien
+que las pruebas las hagas con la app ego lite eso te dara ojos y trambien quiero crear una
+landing page para la app para que entre la gente sea lo primero que mire y que tenga un boton
+en grande donde lo lleve para recervar
+L30 (decision): the booking board moves to `#/reservar`; `#/` is the landing. Every internal
+link was updated, including the post-login return path and the panel exit link.
+L31 (decision): the "how it works" sequence belongs to the landing, not to the board, so the
+booking screen stays dense for returning clients.
+L32 (environment): the machine has no `ego` browser tool, so visual verification runs on
+Playwright with a real Chromium: screenshots, console errors and click-through on desktop and
+mobile. If the owner installs that tool later, it replaces Playwright without touching the app.
+L33 (verification): 147 tests green (58 core, 71 API, 18 web), typecheck and build clean, and a
+browser pass that confirms the navigation is centered to the pixel, the tagline is gone, the
+live hours come from the API, and the primary action lands on the board.
