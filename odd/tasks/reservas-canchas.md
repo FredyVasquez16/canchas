@@ -369,3 +369,14 @@ mobile. If the owner installs that tool later, it replaces Playwright without to
 L33 (verification): 147 tests green (58 core, 71 API, 18 web), typecheck and build clean, and a
 browser pass that confirms the navigation is centered to the pixel, the tagline is gone, the
 live hours come from the API, and the primary action lands on the board.
+
+L34 (tooling): the ego-browser skill from citrolabs/ego-lite is installed under
+.agents/skills/ego-browser (git ignored) and pinned in skills-lock.json. Browser work now
+runs through `ego-browser nodejs`, which drives the real ego lite Chromium; the guide from
+`ego-browser skill` is authoritative for its API.
+L35 (copy): every standalone label and tag starts with a capital letter. Fixed the board
+bands, the legend, the date chips (Mié 28 oct / Hoy, Jue 29 oct / Mañana), the facts values
+and the panel tags. Case was audited on the rendered page, not in the source.
+L36 (verification): the copy audit is mechanical now: collect label selectors on landing,
+board and every panel tab and report any text that starts with a lowercase letter. The report
+is empty after the fix, with 147 tests green and a clean build.
