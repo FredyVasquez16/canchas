@@ -509,3 +509,52 @@ describe('statistics', () => {
     expect(body.totals.capacityHours).toBe(3 * 24 - 3 * 4);
   });
 });
+
+describe('statistics by court', () => {
+  it('ranks every court by reservations, including the ones without any', async () => {
+    context = createTestContext();
+    const admin = await signInAs(context, 'admin', 'admin@example.com');
+    const client = await registerClient(context, { phone: '9999-7777', name: 'Ana' });
+    const courtsResponse = await context.app.inject({ method: 'GET', url: '/api/courts' });
+    const courtIds = (courtsResponse.json() as { courts: Array<{ id: string }> }).courts.map(
+      (court) => court.id,
+    );
+
+    await bookFor(context, client.cookie, {
+      courtId: courtIds[1]!,
+      date: DATE,
+      startHour: 18,
+      hours: 2,
+    });
+    await bookFor(context, client.cookie, {
+      courtId: courtIds[1]!,
+      date: DATE,
+      startHour: 20,
+      hours: 1,
+    });
+
+    const response = await get(
+      context,
+      '/api/admin/stats?from=2025-03-12&to=2025-03-12',
+      admin,
+    );
+    const body = response.json() as {
+      byCourt: Array<{
+        courtId: string;
+        courtName: string;
+        reservations: number;
+        bookedHours: number;
+        share: number;
+      }>;
+    };
+
+    expect(body.byCourt).toHaveLength(3);
+    expect(body.byCourt[0]?.courtId).toBe(courtIds[1]);
+    expect(body.byCourt[0]?.courtName).toBe('Cancha 2');
+    expect(body.byCourt[0]?.reservations).toBe(2);
+    expect(body.byCourt[0]?.bookedHours).toBe(3);
+    expect(body.byCourt[0]?.share).toBe(1);
+    expect(body.byCourt[1]?.reservations).toBe(0);
+    expect(body.byCourt[1]?.share).toBe(0);
+  });
+});

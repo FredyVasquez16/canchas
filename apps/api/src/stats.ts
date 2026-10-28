@@ -44,6 +44,16 @@ export interface HourPoint {
   reservations: number;
 }
 
+export interface CourtStat {
+  courtId: string;
+  courtName: string;
+  reservations: number;
+  bookedHours: number;
+  collectedCents: number;
+  /** Share of the reservations of the period, 0..1. */
+  share: number;
+}
+
 export interface TopClient {
   id: string;
   name: string;
@@ -59,6 +69,7 @@ export interface StatsPayload {
   totals: StatsTotals;
   daily: DailyPoint[];
   byHour: HourPoint[];
+  byCourt: CourtStat[];
   topClients: TopClient[];
 }
 
@@ -134,6 +145,36 @@ export function computeStats(db: Db, input: StatsInput): StatsPayload {
     }
   }
 
+  const courtStats: CourtStat[] = listCourts(db, { includeInactive: true }).map((court) => ({
+    courtId: court.id,
+    courtName: court.name,
+    reservations: 0,
+    bookedHours: 0,
+    collectedCents: 0,
+    share: 0,
+  }));
+  const courtIndex = new Map(courtStats.map((entry) => [entry.courtId, entry]));
+  for (const reservation of booked) {
+    const entry = courtIndex.get(reservation.courtId);
+    if (!entry) {
+      continue;
+    }
+    entry.reservations += 1;
+    entry.bookedHours += reservation.hours;
+    if (reservation.arrivedAt !== null) {
+      entry.collectedCents += reservation.totalCents;
+    }
+  }
+  courtStats.sort(
+    (left, right) =>
+      right.reservations - left.reservations ||
+      right.bookedHours - left.bookedHours ||
+      left.courtName.localeCompare(right.courtName),
+  );
+  for (const entry of courtStats) {
+    entry.share = booked.length > 0 ? entry.reservations / booked.length : 0;
+  }
+
   const perClient = new Map<string, { reservations: number; failures: number }>();
   for (const reservation of booked) {
     const current = perClient.get(reservation.userId) ?? { reservations: 0, failures: 0 };
@@ -180,6 +221,7 @@ export function computeStats(db: Db, input: StatsInput): StatsPayload {
     },
     daily,
     byHour,
+    byCourt: courtStats,
     topClients,
   };
 }
