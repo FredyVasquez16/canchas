@@ -143,7 +143,7 @@ export function MinePage() {
       {status === 'ready' &&
         (upcoming.length === 0 ? (
           <div className="empty">
-            No tienes reservas próximas. Mira los <a href="#/">horarios disponibles</a> y reserva
+            No tienes reservas próximas. Mira los <a href="#/reservar">horarios disponibles</a> y reserva
             cuando quieras.
           </div>
         ) : (

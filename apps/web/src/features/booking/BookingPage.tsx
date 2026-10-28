@@ -554,43 +554,6 @@ export function BookingPage() {
               </div>
             </div>
           )}
-          <section className="steps" aria-labelledby="how-it-works">
-            <h2 id="how-it-works" className="panel__title">
-              Cómo funciona
-            </h2>
-            <ol className="steps__list">
-              <li className="steps__item">
-                <span className="steps__number" aria-hidden="true">
-                  1
-                </span>
-                <span className="steps__title">Elige la cancha y la hora</span>
-                <p className="steps__text">
-                  El tablero muestra las horas libres de cada cancha. Toca una hora y, si quieres
-                  más, toca la siguiente.
-                </p>
-              </li>
-              <li className="steps__item">
-                <span className="steps__number" aria-hidden="true">
-                  2
-                </span>
-                <span className="steps__title">Confirma con tu cuenta</span>
-                <p className="steps__text">
-                  Ver horarios es libre. Solo necesitas una cuenta para reservar, con tu nombre y
-                  tu teléfono.
-                </p>
-              </li>
-              <li className="steps__item">
-                <span className="steps__number" aria-hidden="true">
-                  3
-                </span>
-                <span className="steps__title">Paga en efectivo al llegar</span>
-                <p className="steps__text">
-                  No se cobra nada en línea. Si no puedes venir, cancela hasta{' '}
-                  {config?.cancelWindowHours ?? 3} horas antes y no queda registrado nada.
-                </p>
-              </li>
-            </ol>
-          </section>
         </Fragment>
       )}
     </section>

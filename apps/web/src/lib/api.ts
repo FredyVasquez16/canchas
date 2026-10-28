@@ -26,12 +26,17 @@ export interface Slot {
   status: SlotStatus;
 }
 
+export interface AvailabilityCourt {
+  court: Court;
+  slots: Slot[];
+}
+
 export interface Availability {
   date: string;
   timeZone: string;
   currency: string;
   cancelWindowHours: number;
-  courts: Array<{ court: Court; slots: Slot[] }>;
+  courts: AvailabilityCourt[];
 }
 
 export interface Reservation {

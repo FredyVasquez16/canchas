@@ -21,7 +21,7 @@ export function AuthPage() {
           <h1 className="page-head__title">Ya tienes una sesión activa</h1>
         </div>
         <p className="muted">
-          Vuelve al <a href="#/">tablero de horarios</a> o revisa{' '}
+          Vuelve al <a href="#/reservar">tablero de horarios</a> o revisa{' '}
           <a href="#/mis-reservas">tus reservas</a>.
         </p>
       </section>
@@ -67,7 +67,7 @@ export function AuthPage() {
       }
       await refresh();
       window.location.hash =
-        sessionStorage.getItem('pending-booking') !== null ? '#/' : '#/mis-reservas';
+        sessionStorage.getItem('pending-booking') !== null ? '#/reservar' : '#/mis-reservas';
     } catch (requestError) {
       setError(errorMessage(requestError));
     } finally {

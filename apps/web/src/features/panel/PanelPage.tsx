@@ -1065,7 +1065,7 @@ export function PanelPage() {
           </p>
         </div>
         <div className="row">
-          <a className="btn btn--primary" href="#/">
+          <a className="btn btn--primary" href="#/reservar">
             Ver horarios
           </a>
           {user === null && (

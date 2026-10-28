@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react';
-import { BookingPage } from './features/booking/BookingPage.tsx';
 import { AuthPage } from './features/booking/AuthPage.tsx';
+import { BookingPage } from './features/booking/BookingPage.tsx';
 import { MinePage } from './features/booking/MinePage.tsx';
+import { LandingPage } from './features/landing/LandingPage.tsx';
 import { PanelPage } from './features/panel/PanelPage.tsx';
 import { useSession } from './lib/session.tsx';
 
 const VENUE_NAME = (import.meta.env.VITE_VENUE_NAME as string | undefined) ?? 'Canchas';
+
+const ROUTES = ['', 'reservar', 'entrar', 'mis-reservas', 'panel'] as const;
 
 function currentRoute(): string {
   const hash = window.location.hash.replace(/^#\/?/, '');
@@ -36,18 +39,27 @@ export function App() {
   const route = useRoute();
   const { user, loading, signOut } = useSession();
   const isPanel = user !== null && user.role !== 'client';
+  const known = (ROUTES as readonly string[]).includes(route);
 
   return (
     <div className="app">
       <header className="app-header">
         <a className="app-header__brand" href="#/">
           <strong>{VENUE_NAME}</strong>
-          <span className="app-header__tagline">Cancha de fútbol · abierto 24 horas</span>
         </a>
         <nav className="app-nav" aria-label="Navegación principal">
-          <NavLink href="#/" label="Reservar" active={route === ''} />
-          {user && <NavLink href="#/mis-reservas" label="Mis reservas" active={route === 'mis-reservas'} />}
+          <NavLink href="#/" label="Inicio" active={route === ''} />
+          <NavLink href="#/reservar" label="Reservar" active={route === 'reservar'} />
+          {user && (
+            <NavLink
+              href="#/mis-reservas"
+              label="Mis reservas"
+              active={route === 'mis-reservas'}
+            />
+          )}
           {isPanel && <NavLink href="#/panel" label="Panel" active={route === 'panel'} />}
+        </nav>
+        <div className="app-header__session">
           {loading ? null : user ? (
             <button
               type="button"
@@ -63,19 +75,20 @@ export function App() {
           ) : (
             <NavLink href="#/entrar" label="Entrar" active={route === 'entrar'} />
           )}
-        </nav>
+        </div>
       </header>
 
       <main className="app-main">
-        {route === '' && <BookingPage />}
+        {route === '' && <LandingPage />}
+        {route === 'reservar' && <BookingPage />}
         {route === 'entrar' && <AuthPage />}
         {route === 'mis-reservas' && <MinePage />}
         {route === 'panel' && <PanelPage />}
-        {route !== '' && route !== 'entrar' && route !== 'mis-reservas' && route !== 'panel' && (
+        {!known && (
           <div className="stack">
             <h1 className="page-head__title">Esa página no existe</h1>
             <p className="muted">
-              Vuelve al <a href="#/">tablero de horarios</a> para reservar una cancha.
+              Vuelve al <a href="#/reservar">tablero de horarios</a> para reservar una cancha.
             </p>
           </div>
         )}

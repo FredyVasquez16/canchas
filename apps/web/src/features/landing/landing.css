@@ -1,0 +1,72 @@
+/*
+ * Landing additions. The hero grid, the availability card, the hour chips and the
+ * facts row come from the shared inventory in src/styles.css; this file only closes
+ * the small gaps the live card needs.
+ */
+
+/* The left column of the hero grid; min-width keeps long words from widening it. */
+.hero__intro {
+  min-width: 0;
+}
+
+/* The status region of the card: title and body keep the card rhythm, the body
+   spaces its own lines tighter. */
+.hero__card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+/* Same writing measure as the lead, so the card does not stretch on wide screens. */
+.hero__card-body p {
+  max-width: 34ch;
+}
+
+/* Four hour chips align in two even rows instead of wrapping unevenly. */
+.hero__hours {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr));
+}
+
+/* The facts row closes the page; a little air keeps it from touching the card. */
+.hero__facts {
+  margin-bottom: 0;
+}
+
+
+/* The hero fills the first screen so the page never looks half empty. */
+.hero {
+  min-height: clamp(22rem, 50vh, 33rem);
+  padding-bottom: 1.25rem;
+}
+
+.landing__steps {
+  margin-top: 0.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--turf-line);
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.landing__closing {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+  padding-top: 0.4rem;
+}
+
+.landing__closing p {
+  margin: 0;
+}
+
+.landing__closing p {
+  font-size: 0.9rem;
+}
+
+@media (max-width: 480px) {
+  .hero__hours {
+    grid-template-columns: 1fr 1fr;
+  }
+}

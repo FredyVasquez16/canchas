@@ -6,8 +6,11 @@
  * what you can take; clay marks what you cannot. One accent, used with restraint.
  *
  * Class inventory, so feature code reuses it instead of inventing a parallel system:
- *   layout      .app .app-header .app-header__brand .app-header__tagline .app-nav
+ *   layout      .app .app-header .app-header__brand .app-nav .app-header__session
  *               .app-main .app-footer .app-footer__note
+ *   landing     .hero .hero__intro .hero__eyebrow .hero__title .hero__lead .hero__actions
+ *               .hero__card .hero__hours .hero__hour .hero__price .hero__facts
+ *               .landing__steps .landing__closing
  *   page        .page-head .page-head__title .page-head__hint .stack .row .muted
  *   facts       .facts .facts__item .facts__label .facts__value
  *   board       .board .board__scroll .board__grid .board__band .board__hour
@@ -109,10 +112,10 @@ a:hover {
 }
 
 .app-header {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  gap: 1.75rem;
-  flex-wrap: wrap;
+  gap: 1rem;
   padding: 0.9rem clamp(1rem, 4vw, 2.5rem);
   border-bottom: 1px solid var(--turf-line);
   background: color-mix(in srgb, var(--turf) 82%, black);
@@ -127,6 +130,7 @@ a:hover {
   flex-direction: column;
   line-height: 1.1;
   color: var(--chalk);
+  justify-self: start;
 }
 
 .app-header__brand strong {
@@ -140,18 +144,35 @@ a:hover {
   text-decoration: none;
 }
 
-.app-header__tagline {
-  font-size: 0.72rem;
-  color: var(--chalk-dim);
-  letter-spacing: 0.01em;
-}
-
 .app-nav {
   display: flex;
-  gap: 1.25rem;
+  gap: 1.35rem;
   align-items: center;
-  margin-left: auto;
+  justify-self: center;
   font-size: 0.94rem;
+}
+
+.app-header__session {
+  display: flex;
+  align-items: center;
+  justify-self: end;
+}
+
+.app-header__session a {
+  color: var(--chalk-dim);
+  font-size: 0.94rem;
+  border-bottom: 2px solid transparent;
+  padding-bottom: 2px;
+}
+
+.app-header__session a:hover {
+  color: var(--chalk);
+  text-decoration: none;
+}
+
+.app-header__session a[aria-current='page'] {
+  color: var(--chalk);
+  border-bottom-color: var(--flood);
 }
 
 .app-nav a {
@@ -590,6 +611,14 @@ a:hover {
   cursor: not-allowed;
 }
 
+.btn--hero {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  min-height: 3.4rem;
+  padding: 0.7rem 1.8rem;
+  letter-spacing: 0.01em;
+}
+
 .segmented {
   display: inline-flex;
   border: 1px solid var(--turf-line);
@@ -705,6 +734,121 @@ a:hover {
   display: flex;
   flex-direction: column;
   gap: 0.9rem;
+}
+
+/* landing ----------------------------------------------------------------- */
+
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  gap: clamp(1.5rem, 4vw, 3.5rem);
+  align-items: center;
+  padding: clamp(1rem, 3vw, 2.5rem) 0 clamp(1.5rem, 4vw, 3rem);
+}
+
+.hero__eyebrow {
+  font-size: 0.8rem;
+  color: var(--chalk-dim);
+  margin-bottom: 0.6rem;
+}
+
+.hero__title {
+  font-size: clamp(2.4rem, 5.6vw, 4rem);
+  max-width: 18ch;
+}
+
+.hero__lead {
+  margin-top: 1rem;
+  font-size: clamp(1rem, 1.6vw, 1.15rem);
+  color: var(--chalk-dim);
+  max-width: 46ch;
+}
+
+.hero__actions {
+  margin-top: 1.6rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.6rem;
+}
+
+.hero__note {
+  font-size: 0.82rem;
+  color: var(--chalk-dim);
+}
+
+.hero__card {
+  border: 1px solid var(--turf-line);
+  border-left: 3px solid var(--flood);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--turf-raised) 88%, var(--turf-deep));
+  padding: 1.1rem 1.2rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.hero__card-title {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+}
+
+.hero__hours {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hero__hour {
+  border: 1px solid color-mix(in srgb, var(--flood) 45%, transparent);
+  background: color-mix(in srgb, var(--flood) 9%, transparent);
+  border-radius: var(--radius);
+  padding: 0.35rem 0.6rem;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--chalk);
+}
+
+.hero__hour small {
+  display: block;
+  font-family: var(--font-body);
+  font-size: 0.66rem;
+  color: var(--chalk-dim);
+}
+
+.hero__price {
+  font-size: 0.85rem;
+  color: var(--chalk-dim);
+}
+
+.hero__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--turf-line);
+  font-size: 0.82rem;
+  color: var(--chalk-dim);
+}
+
+.hero__facts span strong {
+  color: var(--chalk);
+  font-weight: 500;
+}
+
+@media (max-width: 860px) {
+  .hero {
+    grid-template-columns: 1fr;
+    padding-top: 0.5rem;
+  }
+
+  .hero__title {
+    max-width: 24ch;
+  }
 }
 
 /* steps ------------------------------------------------------------------- */
@@ -999,11 +1143,25 @@ a:hover {
 
 @media (max-width: 720px) {
   .app-header {
-    gap: 0.75rem;
+    grid-template-columns: 1fr auto;
+    row-gap: 0.45rem;
+  }
+
+  .app-header__brand {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .app-header__session {
+    grid-column: 2;
+    grid-row: 1;
   }
 
   .app-nav {
-    gap: 0.9rem;
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-self: center;
+    gap: 1.1rem;
     font-size: 0.9rem;
   }
 
