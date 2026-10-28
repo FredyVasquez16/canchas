@@ -11,6 +11,13 @@ Read until `Round three (2026-10-28), requested by the owner:
 | T16 | S25, S26 | Landing page at `#/` with a single large action, live free hours, facts and a closing sequence; the board moves to `#/reservar` | done — 302ce16 |
 | T17 | S26 | Header navigation centered, no text under the brand | done — 302ce16 |
 
+Round four (2026-10-28), requested by the owner:
+
+| ID | Specs | Route | Commit |
+| --- | --- | --- | --- |
+| T18 | S27 | Better statistics charts: metric switch, gridlines, aligned hour axis and peak hours in words | done — cd6d5c2 |
+| T19 | S27 | Most booked court chart with count, share and the top court named | done — 39365e4, cd6d5c2 |
+
 ## Log` before acting on any task in this document.
 
 ## Specs
@@ -70,6 +77,9 @@ S25. The app opens on a landing page whose job is to send people to book: one la
 primary action above everything else, live free hours of today, and the venue facts.
 S26. The header keeps the venue name on the left, the navigation links centered and the
 session action on the right, with no text under the brand.
+S27. The statistics view charts its data instead of listing it: the daily series can be read
+as reservations, hours sold or cash, the hourly demand aligns to its columns, and a ranked
+chart names the court that carries the venue with its share of the period.
 S24. Reminders are sent by the system on a schedule, without anyone running a command.
 When SMTP settings are present the mail leaves through them; otherwise the message is logged
 and the settings that are missing are reported.
@@ -380,3 +390,14 @@ and the panel tags. Case was audited on the rendered page, not in the source.
 L36 (verification): the copy audit is mechanical now: collect label selectors on landing,
 board and every panel tab and report any text that starts with a lowercase letter. The report
 is empty after the fix, with 147 tests green and a clean build.
+
+L37 (implementation): the per-court breakdown lives in the API payload (byCourt) instead of
+being computed in the browser, so the chart and the ranking cannot disagree with the totals.
+L38 (diagnosis): clicking the Statistics tab blanked the page. The cause was a stale API
+process, started before byCourt existed, returning a payload the new chart could not read.
+Restarting the API fixed it; the lesson is that the API must be restarted after a payload
+change, because tsx start does not watch.
+L39 (verification): ego-browser drove the owner session through all five panel tabs after the
+refactor, confirmed the four sections of the statistics view, the metric switch, the court
+ranking with its sentence, and zero horizontal overflow at 390 px. 148 tests green
+(58 core, 72 API, 18 web), typecheck and build clean.
