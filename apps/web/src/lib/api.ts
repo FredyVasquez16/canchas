@@ -99,6 +99,14 @@ export interface StatsResponse {
   };
   daily: Array<{ date: string; reservations: number; bookedHours: number; collectedCents: number }>;
   byHour: Array<{ hour: number; reservations: number }>;
+  byCourt: Array<{
+    courtId: string;
+    courtName: string;
+    reservations: number;
+    bookedHours: number;
+    collectedCents: number;
+    share: number;
+  }>;
   topClients: Array<{ id: string; name: string; phone: string; reservations: number; failures: number }>;
 }
 

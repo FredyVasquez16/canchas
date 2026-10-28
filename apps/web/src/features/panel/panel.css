@@ -48,6 +48,236 @@
   }
 }
 
-.chart__bar--peak {
+/* charts ------------------------------------------------------------------ *
+ * Plain markup charts for the statistics tab. Global styles.css owns .chart,
+ * .chart__bar and .chart__axis defaults; these rules are scoped under
+ * .chart__plot / .chart__axis so they win on specificity (0,2,0) whatever the
+ * stylesheet order is. Only the existing turf/flood/clay variables are used. */
+
+.chart__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.15rem;
+}
+
+.chart .chart__max {
+  font-size: 0.74rem;
+  color: var(--chalk-dim);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.chart .chart__plot {
+  position: relative;
+  display: grid;
+  column-gap: 2px;
+  align-items: stretch;
+  height: 7.5rem;
+  margin-top: 0.9rem;
+}
+
+.chart .chart__plot--dense {
+  column-gap: 1px;
+}
+
+.chart .chart__plot > .chart__col {
+  display: flex;
+  align-items: flex-end;
+  height: 100%;
+  min-width: 0;
+  flex: initial;
+}
+
+.chart .chart__plot .chart__bar {
+  width: 100%;
+  min-height: 0.2rem;
+  border-radius: 2px 2px 0 0;
+  background: color-mix(in srgb, var(--flood) 70%, transparent);
+}
+
+.chart .chart__plot .chart__bar:hover {
   background: var(--flood);
+}
+
+.chart .chart__plot .chart__bar--peak,
+.chart .chart__plot .chart__bar--peak:hover {
+  background: var(--flood);
+}
+
+.chart .chart__plot .chart__bar--zero,
+.chart .chart__plot .chart__bar--zero:hover {
+  height: 1px;
+  min-height: 1px;
+  border-radius: 0;
+  background: var(--turf-line);
+}
+
+.chart .chart__gridline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: color-mix(in srgb, var(--chalk) 7%, transparent);
+  pointer-events: none;
+}
+
+.chart .chart__gridline--top {
+  background: color-mix(in srgb, var(--chalk) 14%, transparent);
+}
+
+.chart .chart__baseline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: var(--turf-line);
+  pointer-events: none;
+}
+
+/* Ticks live in the same grid as the bars, so they cannot drift from a column. */
+.chart .chart__axis {
+  display: grid;
+  column-gap: 2px;
+  justify-content: initial;
+  font-size: 0.72rem;
+  color: var(--chalk-dim);
+  font-variant-numeric: tabular-nums;
+  margin-top: 0.3rem;
+}
+
+.chart .chart__plot--dense + .chart__axis {
+  column-gap: 1px;
+}
+
+.chart .chart__tick {
+  min-width: 0;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.chart .chart__tick--start {
+  text-align: left;
+}
+
+.chart .chart__tick--end {
+  text-align: right;
+}
+
+.chart .chart__note {
+  font-size: 0.88rem;
+  color: var(--chalk);
+  max-width: 60ch;
+}
+
+.chart--hours .chart__note {
+  color: var(--chalk-dim);
+  font-size: 0.8rem;
+}
+
+.chart--hours .chart__plot {
+  height: 6rem;
+}
+
+/* court ranking ----------------------------------------------------------- */
+
+.courtbars {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.courtrow {
+  display: flex;
+  flex-direction: column;
+  gap: 0.22rem;
+  min-width: 0;
+}
+
+.courtrow__head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem 0.5rem;
+  flex-wrap: wrap;
+  min-width: 0;
+  font-size: 0.8rem;
+  color: var(--chalk-dim);
+}
+
+.courtrow__name {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  color: var(--chalk);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.courtrow--top .courtrow__name {
+  color: var(--flood);
+}
+
+.courtrow__count {
+  margin-left: auto;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.courtrow__share {
+  min-width: 3.1rem;
+  text-align: right;
+  white-space: nowrap;
+  color: var(--chalk);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.courtrow__track {
+  height: 0.6rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--chalk) 8%, transparent);
+  overflow: hidden;
+}
+
+.courtrow__fill {
+  height: 100%;
+  min-width: 2px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--flood) 70%, transparent);
+}
+
+.courtrow--top .courtrow__fill {
+  background: var(--flood);
+}
+
+.courtrow__fill--zero {
+  width: 1px;
+  min-width: 1px;
+  border-radius: 0;
+  background: var(--turf-line);
+}
+
+@media (max-width: 640px) {
+  .chart .chart__plot {
+    height: 6.5rem;
+  }
+
+  .chart--hours .chart__plot {
+    height: 5rem;
+  }
+
+  .chart .chart__axis {
+    font-size: 0.68rem;
+  }
+
+  .courtrow__name {
+    font-size: 0.94rem;
+  }
 }
