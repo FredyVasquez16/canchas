@@ -11,3 +11,7 @@ data/
 *.sqlite-wal
 *.sqlite-shm
 .DS_Store
+
+# agent tooling installed locally
+.agents/
+.claude/
