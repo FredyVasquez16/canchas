@@ -21,7 +21,7 @@ import './booking.css';
 const PENDING_KEY = 'pending-booking';
 
 /** The four blocks of a 24 hour venue, used as board headers. */
-const DAY_BANDS = ['madrugada', 'mañana', 'tarde', 'noche'];
+const DAY_BANDS = ['Madrugada', 'Mañana', 'Tarde', 'Noche'];
 
 /** Shape stored in sessionStorage when a guest selection is sent to login. */
 interface PendingBooking {
@@ -375,12 +375,12 @@ export function BookingPage() {
               </div>
               <div className="facts__item">
                 <dt className="facts__label">Pago</dt>
-                <dd className="facts__value">en efectivo al llegar</dd>
+                <dd className="facts__value">En efectivo al llegar</dd>
               </div>
               <div className="facts__item">
                 <dt className="facts__label">Cancelación</dt>
                 <dd className="facts__value">
-                  gratis hasta {config?.cancelWindowHours ?? 3} h antes
+                  Gratis hasta {config?.cancelWindowHours ?? 3} h antes
                 </dd>
               </div>
             </dl>
@@ -497,23 +497,23 @@ export function BookingPage() {
                 <ul className="board__legend">
                   <li>
                     <span className="legend__swatch legend__swatch--available" aria-hidden="true" />
-                    libre
+                    Libre
                   </li>
                   <li>
                     <span className="legend__swatch legend__swatch--selected" aria-hidden="true" />
-                    tu selección
+                    Tu selección
                   </li>
                   <li>
                     <span className="legend__swatch legend__swatch--occupied" aria-hidden="true" />
-                    ocupada
+                    Ocupada
                   </li>
                   <li>
                     <span className="legend__swatch legend__swatch--closed" aria-hidden="true" />
-                    cerrada
+                    Cerrada
                   </li>
                   <li>
                     <span className="legend__swatch legend__swatch--past" aria-hidden="true" />
-                    hora pasada
+                    Hora pasada
                   </li>
                 </ul>
               </div>

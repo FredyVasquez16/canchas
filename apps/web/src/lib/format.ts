@@ -30,14 +30,20 @@ export function rangeText(startAt: number, endAt: number, timeZone: string): str
   return formatHour12Range(venueHour(startAt, timeZone), venueHour(endAt, timeZone));
 }
 
+function capitalize(text: string): string {
+  return text.length === 0 ? text : text[0]!.toUpperCase() + text.slice(1);
+}
+
 export function dayText(date: string, timeZone: string): string {
   const noon = zonedToEpoch(date, 12, timeZone);
-  return new Intl.DateTimeFormat('es-HN', {
-    timeZone,
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-  }).format(noon);
+  return capitalize(
+    new Intl.DateTimeFormat('es-HN', {
+      timeZone,
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+    }).format(noon),
+  );
 }
 
 export interface DayOption {
@@ -64,9 +70,9 @@ export function upcomingDays(
     const read = (type: string) => parts.find((part) => part.type === type)?.value ?? '';
     return {
       date,
-      weekday: read('weekday').replace('.', ''),
+      weekday: capitalize(read('weekday').replace('.', '')),
       day: `${read('day')} ${read('month').replace('.', '')}`,
-      relative: index === 0 ? 'hoy' : index === 1 ? 'mañana' : null,
+      relative: index === 0 ? 'Hoy' : index === 1 ? 'Mañana' : null,
     };
   });
 }

@@ -58,21 +58,21 @@ function Section({ title, hint, children }: { title: string; hint?: string; chil
 
 function FailureTag({ entry }: { entry: Agenda['reservations'][number] }) {
   if (entry.arrivedAt !== null) {
-    return <span className="tag tag--ok">asistió</span>;
+    return <span className="tag tag--ok">Asistió</span>;
   }
   if (entry.failureMarkedAt !== null) {
     const label =
       entry.failureReason === 'late_cancel'
-        ? 'falta: canceló tarde'
+        ? 'Falta: canceló tarde'
         : entry.failureReason === 'no_show'
-          ? 'falta: no llegó'
-          : 'falta';
+          ? 'Falta: no llegó'
+          : 'Falta';
     return <span className="tag tag--warn">{label}</span>;
   }
   if (entry.status === 'cancelled') {
-    return <span className="tag tag--muted">cancelada</span>;
+    return <span className="tag tag--muted">Cancelada</span>;
   }
-  return <span className="tag">pendiente de cobro</span>;
+  return <span className="tag">Pendiente de cobro</span>;
 }
 
 function AgendaTab({ config }: { config: PublicConfig }) {
@@ -514,7 +514,7 @@ function CourtRow({ court, onSaved }: { court: Court; onSaved: () => Promise<voi
       </td>
       <td>
         <span className={court.active ? 'tag tag--ok' : 'tag tag--muted'}>
-          {court.active ? 'disponible' : 'desactivada'}
+          {court.active ? 'Disponible' : 'Desactivada'}
         </span>
       </td>
       <td>
@@ -751,14 +751,14 @@ function ClientsTab({ config }: { config: PublicConfig }) {
 
   function blockLabel(client: ClientRow): ReactNode {
     if (client.block === null) {
-      return <span className="tag tag--muted">sin bloqueo</span>;
+      return <span className="tag tag--muted">Sin bloqueo</span>;
     }
     if (client.block.endsAt === null) {
-      return <span className="tag tag--warn">bloqueado sin fecha</span>;
+      return <span className="tag tag--warn">Bloqueado sin fecha</span>;
     }
     return (
       <span className="tag tag--warn">
-        penalizado hasta {formatVenueDate(client.block.endsAt, config.venueTimeZone)}
+        Penalizado hasta {formatVenueDate(client.block.endsAt, config.venueTimeZone)}
       </span>
     );
   }
