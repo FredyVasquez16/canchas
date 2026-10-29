@@ -18,6 +18,14 @@ Round four (2026-10-28), requested by the owner:
 | T18 | S27 | Better statistics charts: metric switch, gridlines, aligned hour axis and peak hours in words | done — cd6d5c2 |
 | T19 | S27 | Most booked court chart with count, share and the top court named | done — 39365e4, cd6d5c2 |
 
+Round five (2026-10-28), requested by the owner:
+
+| ID | Specs | Route | Commit |
+| --- | --- | --- | --- |
+| T20 | S28 | Uniform facts row on the landing: one label/value treatment, no mixed colours | done — eaddcb5 |
+| T21 | S29 | Real site footer: identity, links, contact and a legal line with the copyright | done — eaddcb5 |
+| T22 | S19 | Delete a court, refused while it has reservations | done — 4e8fd80, eaddcb5 |
+
 ## Log` before acting on any task in this document.
 
 ## Specs
@@ -80,6 +88,10 @@ session action on the right, with no text under the brand.
 S27. The statistics view charts its data instead of listing it: the daily series can be read
 as reservations, hours sold or cash, the hourly demand aligns to its columns, and a ranked
 chart names the court that carries the venue with its share of the period.
+S28. The landing facts row is a label/value list with one consistent treatment; a phrase never
+mixes dim and bright text inside the same sentence.
+S29. The footer behaves like a normal site footer: venue identity, site links, contact details
+and a legal line with the copyright year and the payment and cancellation rule.
 S24. Reminders are sent by the system on a schedule, without anyone running a command.
 When SMTP settings are present the mail leaves through them; otherwise the message is logged
 and the settings that are missing are reported.
@@ -401,3 +413,14 @@ L39 (verification): ego-browser drove the owner session through all five panel t
 refactor, confirmed the four sections of the statistics view, the metric switch, the court
 ranking with its sentence, and zero horizontal overflow at 390 px. 148 tests green
 (58 core, 72 API, 18 web), typecheck and build clean.
+
+L40 (decision): deleting a court is allowed only while it has no reservations, because those
+rows carry the collected money and the statistics. The API answers court_in_use and the panel
+suggests deactivating, which keeps the history and the court name.
+L41 (implementation): the footer reads the venue identity from build-time variables
+(VITE_VENUE_NAME, VITE_VENUE_CITY, VITE_VENUE_PHONE, VITE_VENUE_EMAIL). Without a phone or an
+email it says to ask at the complex instead of showing a dead link. The README documents every
+variable the project needs, API and web.
+L42 (verification): ego-browser created a court, deleted it through the panel, confirmed the
+list returns to three courts, and confirmed that deleting a court with reservations shows the
+court_in_use message and keeps it. 151 tests green (58 core, 75 API, 18 web).
