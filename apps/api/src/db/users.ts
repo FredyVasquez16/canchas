@@ -175,3 +175,25 @@ export function findPeopleByIds(db: Db, ids: string[]): PersonSummary[] {
     ids,
   );
 }
+
+export interface ProfileUpdate {
+  name?: string;
+  phone?: string;
+}
+
+export function updateUserProfile(db: Db, id: string, update: ProfileUpdate): void {
+  if (update.name !== undefined) {
+    runSql(db, 'UPDATE users SET name = ? WHERE id = ?', [update.name.trim(), id]);
+  }
+  if (update.phone !== undefined) {
+    runSql(db, 'UPDATE users SET phone = ?, phone_normalized = ? WHERE id = ?', [
+      update.phone.trim(),
+      normalizePhone(update.phone),
+      id,
+    ]);
+  }
+}
+
+export function updatePasswordHash(db: Db, id: string, passwordHash: string): void {
+  runSql(db, 'UPDATE users SET password_hash = ? WHERE id = ?', [passwordHash, id]);
+}

@@ -38,6 +38,7 @@ import { findActiveBlock } from './db/blocks.ts';
 import { isValidHonduranPhone } from './phone.ts';
 import { CLEAR_COOKIE, publicUser, reject, sessionCookie, tokenFrom } from './http.ts';
 import { registerAdminRoutes } from './routes/admin.ts';
+import { registerAccountRoutes } from './routes/account.ts';
 
 export interface AppDeps {
   db: Db;
@@ -361,6 +362,7 @@ export function buildApp(deps: AppDeps, options: { logger?: boolean } = {}): Fas
     });
   });
 
+  registerAccountRoutes(app, { db, now });
   registerAdminRoutes(app, { db, now });
 
   return app;

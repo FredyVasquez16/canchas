@@ -23,7 +23,7 @@ export function verifyPassword(password: string, stored: string): boolean {
   return timingSafeEqual(derived, expectedBuffer);
 }
 
-function hashToken(token: string): string {
+export function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
 }
 
@@ -56,4 +56,12 @@ export function findSessionUser(db: Db, token: string, now: number): UserRecord 
     return null;
   }
   return findUserById(db, row.user_id);
+}
+
+/** S30: a password change closes every other session, so a stolen cookie dies with it. */
+export function destroyOtherSessions(db: Db, userId: string, keepToken: string): void {
+  db.prepare('DELETE FROM sessions WHERE user_id = ? AND token_hash != ?').run(
+    userId,
+    hashToken(keepToken),
+  );
 }
