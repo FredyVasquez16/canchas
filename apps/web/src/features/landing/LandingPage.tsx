@@ -53,7 +53,6 @@ export function LandingPage() {
   const currency = config?.currency ?? availability?.currency ?? 'HNL';
   const courts: AvailabilityCourt[] = availability?.courts ?? [];
   const free = nextFreeHours(courts, 4);
-  const courtLabel = courts.length === 1 ? '1 cancha' : `${courts.length} canchas`;
   const cancelHours = config?.cancelWindowHours ?? 3;
 
   return (
@@ -127,20 +126,24 @@ export function LandingPage() {
       </section>
 
       {status === 'ready' && courts.length > 0 && (
-        <div className="hero__facts">
-          <span>
-            <strong>{courtLabel}</strong>
-          </span>
-          <span>
-            Abierto <strong>24 horas</strong>
-          </span>
-          <span>
-            Cancelación <strong>gratis hasta {cancelHours} horas antes</strong>
-          </span>
-          <span>
-            Pago <strong>en efectivo al llegar</strong>
-          </span>
-        </div>
+        <dl className="facts">
+          <div className="facts__item">
+            <dt className="facts__label">Canchas</dt>
+            <dd className="facts__value">{courts.length}</dd>
+          </div>
+          <div className="facts__item">
+            <dt className="facts__label">Horario</dt>
+            <dd className="facts__value">24 horas</dd>
+          </div>
+          <div className="facts__item">
+            <dt className="facts__label">Cancelación</dt>
+            <dd className="facts__value">Gratis hasta {cancelHours} horas antes</dd>
+          </div>
+          <div className="facts__item">
+            <dt className="facts__label">Pago</dt>
+            <dd className="facts__value">En efectivo al llegar</dd>
+          </div>
+        </dl>
       )}
 
       <section className="landing__steps" aria-labelledby="landing-steps-title">

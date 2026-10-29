@@ -5,8 +5,13 @@ import { MinePage } from './features/booking/MinePage.tsx';
 import { LandingPage } from './features/landing/LandingPage.tsx';
 import { PanelPage } from './features/panel/PanelPage.tsx';
 import { useSession } from './lib/session.tsx';
-
-const VENUE_NAME = (import.meta.env.VITE_VENUE_NAME as string | undefined) ?? 'Canchas';
+import {
+  VENUE_CITY,
+  VENUE_EMAIL,
+  VENUE_NAME,
+  VENUE_PHONE,
+  VENUE_PHONE_DIGITS,
+} from './lib/venue.ts';
 
 const ROUTES = ['', 'reservar', 'entrar', 'mis-reservas', 'panel'] as const;
 
@@ -95,10 +100,47 @@ export function App() {
       </main>
 
       <footer className="app-footer">
-        <span>{VENUE_NAME} · reservas en línea sin llamadas ni mensajes</span>
-        <span className="app-footer__note">
-          pago en efectivo al llegar · cancelación sin costo hasta 3 horas antes
-        </span>
+        <div className="app-footer__top">
+          <div className="app-footer__brand">
+            <strong>{VENUE_NAME}</strong>
+            <span className="app-footer__tagline">
+              {VENUE_CITY === ''
+                ? 'Cancha de fútbol · abierto 24 horas'
+                : `Cancha de fútbol en ${VENUE_CITY} · abierto 24 horas`}
+            </span>
+          </div>
+
+          <nav className="app-footer__links" aria-label="Enlaces del sitio">
+            <span className="app-footer__heading">El sitio</span>
+            <a href="#/">Inicio</a>
+            <a href="#/reservar">Reservar una cancha</a>
+            <a href="#/mis-reservas">Mis reservas</a>
+            <a href="#/entrar">Mi cuenta</a>
+          </nav>
+
+          <div className="app-footer__contact">
+            <span className="app-footer__heading">Contáctanos</span>
+            {VENUE_PHONE !== '' && (
+              <>
+                <a href={`https://wa.me/${VENUE_PHONE_DIGITS}`}>WhatsApp</a>
+                <a href={`tel:+${VENUE_PHONE_DIGITS}`}>{VENUE_PHONE}</a>
+              </>
+            )}
+            {VENUE_EMAIL !== '' && <a href={`mailto:${VENUE_EMAIL}`}>{VENUE_EMAIL}</a>}
+            {VENUE_PHONE === '' && VENUE_EMAIL === '' && (
+              <span>Pregunta por nosotros en el complejo</span>
+            )}
+          </div>
+        </div>
+
+        <div className="app-footer__legal">
+          <span>
+            © {new Date().getFullYear()} {VENUE_NAME}. Todos los derechos reservados.
+          </span>
+          <span className="app-footer__note">
+            Pago en efectivo al llegar · cancelación sin costo hasta 3 horas antes
+          </span>
+        </div>
       </footer>
     </div>
   );

@@ -281,3 +281,18 @@
     font-size: 0.94rem;
   }
 }
+
+.confirm-inline {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.6rem;
+  border-left: 3px solid var(--clay);
+  background: color-mix(in srgb, var(--clay) 8%, transparent);
+  border-radius: var(--radius);
+}
+
+.confirm-inline .hint {
+  max-width: 34ch;
+}

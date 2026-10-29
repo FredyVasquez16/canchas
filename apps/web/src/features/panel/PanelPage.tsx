@@ -448,6 +448,22 @@ function CourtRow({ court, onSaved }: { court: Court; onSaved: () => Promise<voi
   const [price, setPrice] = useState(centsToInput(court.pricePerHourCents));
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+
+  async function remove(): Promise<void> {
+    setError(null);
+    setSaving(true);
+    try {
+      await api.deleteCourt(court.id);
+      setConfirmingDelete(false);
+      await onSaved();
+    } catch (caught) {
+      setError(errorMessage(caught));
+      setConfirmingDelete(false);
+    } finally {
+      setSaving(false);
+    }
+  }
 
   async function save(): Promise<void> {
     setError(null);
@@ -522,7 +538,41 @@ function CourtRow({ court, onSaved }: { court: Court; onSaved: () => Promise<voi
           >
             {court.active ? 'Desactivar' : 'Activar'}
           </button>
+          <button
+            type="button"
+            className="btn btn--small btn--danger"
+            onClick={() => setConfirmingDelete(true)}
+            disabled={saving || confirmingDelete}
+          >
+            Eliminar
+          </button>
         </div>
+        {confirmingDelete && (
+          <div className="confirm-inline" role="group" aria-label={`Eliminar ${court.name}`}>
+            <p className="hint">
+              ¿Eliminar {court.name}? Solo se puede si nunca tuvo reservas; si ya se usó,
+              desactívala.
+            </p>
+            <div className="agenda-actions">
+              <button
+                type="button"
+                className="btn btn--small btn--danger"
+                onClick={() => void remove()}
+                disabled={saving}
+              >
+                Sí, eliminar
+              </button>
+              <button
+                type="button"
+                className="btn btn--small btn--ghost"
+                onClick={() => setConfirmingDelete(false)}
+                disabled={saving}
+              >
+                Volver
+              </button>
+            </div>
+          </div>
+        )}
         {error && (
           <p className="notice notice--error" role="alert">
             {error}

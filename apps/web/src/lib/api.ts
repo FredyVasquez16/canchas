@@ -252,6 +252,9 @@ export const api = {
   stats: (from: string, to: string) =>
     request<StatsResponse>(`/admin/stats?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`),
 
+  deleteCourt: (id: string) =>
+    request<{ ok: boolean }>(`/admin/courts/${id}`, { method: 'DELETE' }),
+
   createCourt: (input: { name: string; pricePerHourCents: number }) =>
     request<{ court: Court }>('/admin/courts', jsonBody(input)),
 
@@ -290,6 +293,8 @@ export function errorMessage(error: unknown): string {
       blocked: 'No puedes reservar mientras tengas una penalización activa.',
       active_limit: 'Ya tienes dos reservas activas. Cancela una o espera a jugar.',
       court_not_found: 'Esa cancha ya no está disponible.',
+      court_in_use:
+        'Esa cancha ya tiene reservas y no se puede eliminar. Desactívala para dejar de ofrecerla.',
       already_cancelled: 'Esa reserva ya fue cancelada.',
       already_started: 'Esa reserva ya comenzó.',
       reservation_not_found: 'No encontramos esa reserva.',

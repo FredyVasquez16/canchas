@@ -7,9 +7,10 @@
  *
  * Class inventory, so feature code reuses it instead of inventing a parallel system:
  *   layout      .app .app-header .app-header__brand .app-nav .app-header__session
- *               .app-main .app-footer .app-footer__note
+ *               .app-main .app-footer .app-footer__top .app-footer__brand .app-footer__links
+ *               .app-footer__contact .app-footer__legal .app-footer__note
  *   landing     .hero .hero__intro .hero__eyebrow .hero__title .hero__lead .hero__actions
- *               .hero__card .hero__hours .hero__hour .hero__price .hero__facts
+ *               .hero__card .hero__hours .hero__hour .hero__price
  *               .landing__steps .landing__closing
  *   page        .page-head .page-head__title .page-head__hint .stack .row .muted
  *   facts       .facts .facts__item .facts__label .facts__value
@@ -199,14 +200,70 @@ a:hover {
 }
 
 .app-footer {
-  padding: 1.1rem clamp(1rem, 4vw, 2.5rem) 2.25rem;
+  padding: 1.5rem clamp(1rem, 4vw, 2.5rem) 1.75rem;
   color: var(--chalk-dim);
-  font-size: 0.82rem;
+  font-size: 0.84rem;
   border-top: 1px solid var(--turf-line);
+  background: color-mix(in srgb, var(--turf) 84%, black);
   display: flex;
-  gap: 0.5rem 1.5rem;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.app-footer__top {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1.25rem 2rem;
+}
+
+.app-footer__brand strong {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  color: var(--chalk);
+  line-height: 1.15;
+}
+
+.app-footer__tagline {
+  font-size: 0.78rem;
+}
+
+.app-footer__links,
+.app-footer__contact {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.3rem;
+}
+
+.app-footer__heading {
+  color: var(--chalk);
+  font-size: 0.8rem;
+  margin-bottom: 0.1rem;
+}
+
+.app-footer__links a,
+.app-footer__contact a {
+  color: var(--chalk-dim);
+}
+
+.app-footer__links a:hover,
+.app-footer__contact a:hover {
+  color: var(--flood);
+}
+
+.app-footer__legal {
+  display: flex;
   justify-content: space-between;
+  gap: 0.45rem 1.5rem;
+  flex-wrap: wrap;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--turf-line);
+  font-size: 0.78rem;
+}
+
+.app-footer__note {
+  color: var(--chalk-dim);
 }
 
 /* page -------------------------------------------------------------------- */
@@ -825,21 +882,6 @@ a:hover {
   color: var(--chalk-dim);
 }
 
-.hero__facts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem 1.5rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--turf-line);
-  font-size: 0.82rem;
-  color: var(--chalk-dim);
-}
-
-.hero__facts span strong {
-  color: var(--chalk);
-  font-weight: 500;
-}
-
 @media (max-width: 860px) {
   .hero {
     grid-template-columns: 1fr;
@@ -1169,6 +1211,14 @@ a:hover {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 0.7rem 1rem;
+  }
+
+  .app-footer__top {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .app-footer__brand {
+    grid-column: 1 / -1;
   }
 
   .facts__item,

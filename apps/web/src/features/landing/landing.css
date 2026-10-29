@@ -29,9 +29,7 @@
 }
 
 /* The facts row closes the page; a little air keeps it from touching the card. */
-.hero__facts {
-  margin-bottom: 0;
-}
+
 
 
 /* The hero fills the first screen so the page never looks half empty. */
