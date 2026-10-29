@@ -26,6 +26,14 @@ Round five (2026-10-28), requested by the owner:
 | T21 | S29 | Real site footer: identity, links, contact and a legal line with the copyright | done — eaddcb5 |
 | T22 | S19 | Delete a court, refused while it has reservations | done — 4e8fd80, eaddcb5 |
 
+Round six (2026-10-28), requested by the owner:
+
+| ID | Specs | Route | Commit |
+| --- | --- | --- | --- |
+| T23 | S30 | Account page: read-only email, editable name and phone | done — 50870e1, 7629412 |
+| T24 | S30 | Password change with the current password, closing other sessions | done — 50870e1, 7629412 |
+| T25 | S1 | Registration asks for the password twice and explains a mismatch | done — 7629412 |
+
 ## Log` before acting on any task in this document.
 
 ## Specs
@@ -92,6 +100,9 @@ S28. The landing facts row is a label/value list with one consistent treatment; 
 mixes dim and bright text inside the same sentence.
 S29. The footer behaves like a normal site footer: venue identity, site links, contact details
 and a legal line with the copyright year and the payment and cancellation rule.
+S30. A signed-in client has an account page: the email is shown and cannot be changed, the
+name and phone are editable, and the password changes only with the current password.
+Changing the password signs the account out everywhere else.
 S24. Reminders are sent by the system on a schedule, without anyone running a command.
 When SMTP settings are present the mail leaves through them; otherwise the message is logged
 and the settings that are missing are reported.
@@ -424,3 +435,15 @@ variable the project needs, API and web.
 L42 (verification): ego-browser created a court, deleted it through the panel, confirmed the
 list returns to three courts, and confirmed that deleting a court with reservations shows the
 court_in_use message and keeps it. 151 tests green (58 core, 75 API, 18 web).
+
+L43 (decision): the email is the account identity, so the API rejects any attempt to edit it
+with email_immutable instead of silently ignoring the field.
+L44 (security): a password change requires the current password and deletes every other session
+for that user. The session that performs the change stays alive, so the owner does not get
+thrown out of the device they are using.
+L45 (implementation): registration asks for the password twice and the mismatch is caught in
+the browser before the request, so a typo never creates an account with an unintended password.
+L46 (verification): ego-browser registered a client with a mismatched confirmation, fixed it,
+changed the name and phone, rejected a wrong current password, changed the password, signed in
+again with the new one and confirmed the old one fails. The test account was deleted from the
+database afterwards. 157 tests green (58 core, 81 API, 18 web).
