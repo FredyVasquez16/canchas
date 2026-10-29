@@ -1,0 +1,19 @@
+/*
+ * Account feature additions. Everything else comes from the shared inventory in
+ * src/styles.css; this file only covers the read-only identity block the two
+ * forms do not provide.
+ */
+
+/* Read-only email above the profile form: labelled like a field, never editable. */
+.account__identity {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid var(--turf-line);
+}
+
+.account__email {
+  font-size: 0.95rem;
+  overflow-wrap: anywhere;
+}

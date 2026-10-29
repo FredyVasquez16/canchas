@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { AccountPage } from './features/account/AccountPage.tsx';
 import { AuthPage } from './features/booking/AuthPage.tsx';
 import { BookingPage } from './features/booking/BookingPage.tsx';
 import { MinePage } from './features/booking/MinePage.tsx';
@@ -13,7 +14,7 @@ import {
   VENUE_PHONE_DIGITS,
 } from './lib/venue.ts';
 
-const ROUTES = ['', 'reservar', 'entrar', 'mis-reservas', 'panel'] as const;
+const ROUTES = ['', 'reservar', 'entrar', 'mis-reservas', 'cuenta', 'panel'] as const;
 
 function currentRoute(): string {
   const hash = window.location.hash.replace(/^#\/?/, '');
@@ -66,17 +67,20 @@ export function App() {
         </nav>
         <div className="app-header__session">
           {loading ? null : user ? (
-            <button
-              type="button"
-              className="btn btn--ghost btn--small"
-              onClick={() => {
-                void signOut().then(() => {
-                  window.location.hash = '#/';
-                });
-              }}
-            >
-              Salir
-            </button>
+            <>
+              <NavLink href="#/cuenta" label="Mi cuenta" active={route === 'cuenta'} />
+              <button
+                type="button"
+                className="btn btn--ghost btn--small"
+                onClick={() => {
+                  void signOut().then(() => {
+                    window.location.hash = '#/';
+                  });
+                }}
+              >
+                Salir
+              </button>
+            </>
           ) : (
             <NavLink href="#/entrar" label="Entrar" active={route === 'entrar'} />
           )}
@@ -88,6 +92,7 @@ export function App() {
         {route === 'reservar' && <BookingPage />}
         {route === 'entrar' && <AuthPage />}
         {route === 'mis-reservas' && <MinePage />}
+        {route === 'cuenta' && <AccountPage />}
         {route === 'panel' && <PanelPage />}
         {!known && (
           <div className="stack">
@@ -115,7 +120,7 @@ export function App() {
             <a href="#/">Inicio</a>
             <a href="#/reservar">Reservar una cancha</a>
             <a href="#/mis-reservas">Mis reservas</a>
-            <a href="#/entrar">Mi cuenta</a>
+            <a href="#/cuenta">Mi cuenta</a>
           </nav>
 
           <div className="app-footer__contact">

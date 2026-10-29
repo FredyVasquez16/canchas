@@ -213,6 +213,17 @@ export const api = {
 
   myReservations: () => request<{ reservations: Reservation[] }>('/reservations/mine'),
 
+  updateAccount: (input: {
+    name?: string;
+    phone?: string;
+    password?: string;
+    currentPassword?: string;
+  }) =>
+    request<{ user: User }>('/account', {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    }),
+
   cancelReservation: (id: string) =>
     request<{ reservation: Reservation; marked: boolean }>(`/reservations/${id}/cancel`, {
       method: 'POST',
@@ -284,6 +295,9 @@ export function errorMessage(error: unknown): string {
       invalid_input: 'Revisa los datos: hay algo incompleto o mal escrito.',
       email_taken: 'Ese correo ya tiene una cuenta.',
       invalid_credentials: 'Correo o contraseña incorrectos.',
+      invalid_current_password: 'La contraseña actual no es correcta.',
+      current_password_required: 'Escribe tu contraseña actual para cambiarla.',
+      email_immutable: 'El correo no se puede cambiar: identifica tu cuenta.',
       unauthenticated: 'Entra a tu cuenta para continuar.',
       forbidden: 'Tu cuenta no tiene permiso para eso.',
       occupied: 'Ese horario acaba de ocuparse. Elige otro.',

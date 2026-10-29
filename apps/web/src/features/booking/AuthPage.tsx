@@ -11,6 +11,7 @@ export function AuthPage() {
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [passwordConfirm, setPasswordConfirm] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -44,12 +45,16 @@ export function AuthPage() {
         return;
       }
     } else {
-      if (!name.trim() || !phone.trim() || !cleanEmail || !password) {
-        setError('Completa nombre, teléfono, correo y contraseña.');
+      if (!name.trim() || !phone.trim() || !cleanEmail || !password || !passwordConfirm) {
+        setError('Completa nombre, teléfono, correo y las dos contraseñas.');
         return;
       }
       if (password.length < 8) {
         setError('La contraseña debe tener al menos 8 caracteres.');
+        return;
+      }
+      if (password !== passwordConfirm) {
+        setError('Las contraseñas no coinciden.');
         return;
       }
     }
@@ -210,6 +215,20 @@ export function AuthPage() {
               onChange={(event) => setPassword(event.target.value)}
             />
             <p className="hint">Mínimo 8 caracteres.</p>
+          </div>
+          <div className="field">
+            <label className="field__label" htmlFor="register-password-confirm">
+              Confirmar contraseña
+            </label>
+            <input
+              id="register-password-confirm"
+              className="input"
+              type="password"
+              autoComplete="new-password"
+              value={passwordConfirm}
+              onChange={(event) => setPasswordConfirm(event.target.value)}
+            />
+            <p className="hint">Escríbela otra vez para evitar errores.</p>
           </div>
           <button type="submit" className="btn btn--primary" disabled={busy}>
             {busy ? 'Creando cuenta…' : 'Crear cuenta'}
