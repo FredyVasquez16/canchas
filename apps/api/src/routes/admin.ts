@@ -13,10 +13,25 @@ import { apiConfig } from '../config.ts';
 import type { Db } from '../db/index.ts';
 import { findSessionUser } from '../auth.ts';
 import { findUserById, listClientFailureCounts, type UserRecord } from '../db/users.ts';
-import { listAgendaBetween, markArrival, markFailure, clearFailure, getReservation } from '../db/reservations.ts';
+import {
+  countReservationsForCourt,
+  getReservation,
+  listAgendaBetween,
+  markArrival,
+  markFailure,
+  clearFailure,
+} from '../db/reservations.ts';
 import { createBlock, getBlock, listActiveBlocks, revokeBlock } from '../db/blocks.ts';
 import { createClosure, deleteClosure, getClosure, listUpcomingClosures } from '../db/closures.ts';
-import { createCourt, getCourt, listCourts, renameCourt, setCourtActive, updateCourtPrice } from '../db/courts.ts';
+import {
+  createCourt,
+  deleteCourt,
+  getCourt,
+  listCourts,
+  renameCourt,
+  setCourtActive,
+  updateCourtPrice,
+} from '../db/courts.ts';
 import { formatMoney } from '../money.ts';
 import { computeStats } from '../stats.ts';
 import { reject, tokenFrom } from '../http.ts';
@@ -352,6 +367,22 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
     }
 
     return reply.code(200).send({ court: getCourt(db, parsed.data.id) });
+  });
+
+  app.delete('/api/admin/courts/:id', async (request, reply) => {
+    if (!requireAdmin(request, reply)) return reply;
+    const parsed = idParamsSchema.safeParse(request.params);
+    if (!parsed.success) {
+      return reject(reply, 400, 'invalid_input');
+    }
+    if (!getCourt(db, parsed.data.id)) {
+      return reject(reply, 404, 'court_not_found');
+    }
+    if (countReservationsForCourt(db, parsed.data.id) > 0) {
+      return reject(reply, 409, 'court_in_use');
+    }
+    deleteCourt(db, parsed.data.id);
+    return reply.code(200).send({ ok: true });
   });
 
   app.get('/api/admin/closures', async (request, reply) => {

@@ -78,3 +78,11 @@ export function setCourtActive(db: Db, courtId: string, active: boolean): void {
 export function renameCourt(db: Db, courtId: string, name: string): void {
   runSql(db, 'UPDATE courts SET name = ? WHERE id = ?', [name.trim(), courtId]);
 }
+
+/**
+ * A court with history is never deleted: its reservations carry the money and the
+ * statistics. Deactivate it instead, so the history keeps its court name.
+ */
+export function deleteCourt(db: Db, courtId: string): void {
+  runSql(db, 'DELETE FROM courts WHERE id = ?', [courtId]);
+}

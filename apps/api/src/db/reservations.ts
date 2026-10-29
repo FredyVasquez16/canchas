@@ -308,3 +308,12 @@ export function listReservationsStartingInPeriod(
     [from, to],
   ).map(toReservation);
 }
+
+export function countReservationsForCourt(db: Db, courtId: string): number {
+  const row = oneRow<{ total: number }>(
+    db,
+    'SELECT COUNT(*) AS total FROM reservations WHERE court_id = ?',
+    [courtId],
+  );
+  return row ? Number(row.total) : 0;
+}

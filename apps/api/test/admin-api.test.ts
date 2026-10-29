@@ -558,3 +558,61 @@ describe('statistics by court', () => {
     expect(body.byCourt[1]?.share).toBe(0);
   });
 });
+
+describe('deleting a court', () => {
+  it('removes a court that was created by accident', async () => {
+    context = createTestContext();
+    const admin = await signInAs(context, 'admin', 'admin@example.com');
+
+    const created = await post(context, '/api/admin/courts', admin, {
+      name: 'Cancha de prueba',
+      pricePerHourCents: 40_000,
+    });
+    expect(created.statusCode).toBe(201);
+    const courtId = (created.json() as { court: { id: string } }).court.id;
+
+    const removed = await context.app.inject({
+      method: 'DELETE',
+      url: `/api/admin/courts/${courtId}`,
+      headers: { cookie: admin },
+    });
+    expect(removed.statusCode).toBe(200);
+
+    const remaining = await get(context, '/api/admin/courts', admin);
+    const ids = (remaining.json() as { courts: Array<{ id: string }> }).courts.map(
+      (court) => court.id,
+    );
+    expect(ids).not.toContain(courtId);
+  });
+
+  it('refuses to delete a court that already has reservations', async () => {
+    context = createTestContext();
+    const admin = await signInAs(context, 'admin', 'admin@example.com');
+    const client = await registerClient(context, { phone: '9999-8888' });
+    const courtId = await firstCourt(context);
+    await bookFor(context, client.cookie, { courtId, date: DATE, startHour: 19, hours: 1 });
+
+    const response = await context.app.inject({
+      method: 'DELETE',
+      url: `/api/admin/courts/${courtId}`,
+      headers: { cookie: admin },
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect((response.json() as { error: string }).error).toBe('court_in_use');
+    expect(await firstCourt(context)).toBe(courtId);
+  });
+
+  it('is not available to staff', async () => {
+    context = createTestContext();
+    const staff = await signInAs(context, 'staff', 'staff@example.com');
+    const courtId = await firstCourt(context);
+
+    const response = await context.app.inject({
+      method: 'DELETE',
+      url: `/api/admin/courts/${courtId}`,
+      headers: { cookie: staff },
+    });
+    expect(response.statusCode).toBe(403);
+  });
+});
