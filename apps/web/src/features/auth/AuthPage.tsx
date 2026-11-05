@@ -1,5 +1,5 @@
-import { useState, type FormEvent } from 'react';
-import { api, errorMessage } from '../../lib/api.ts';
+import { useEffect, useState, type FormEvent } from 'react';
+import { api, errorMessage, GOOGLE_SIGN_IN_URL } from '../../lib/api.ts';
 import { useSession } from '../../lib/session.tsx';
 
 type Mode = 'login' | 'register';
@@ -14,6 +14,25 @@ export function AuthPage() {
   const [passwordConfirm, setPasswordConfirm] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // S36: the button only exists when the API runs with Google credentials.
+  const [googleEnabled, setGoogleEnabled] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void api
+      .config()
+      .then((config) => {
+        if (!cancelled) {
+          setGoogleEnabled(config.googleSignIn);
+        }
+      })
+      .catch(() => {
+        // Without a configuration the button stays hidden: a dead button is worse.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   if (!loading && user) {
     return (
@@ -116,6 +135,15 @@ export function AuthPage() {
         </div>
       )}
 
+      {googleEnabled && (
+        <div className="stack">
+          <a className="btn btn--ghost" href={GOOGLE_SIGN_IN_URL}>
+            Continuar con Google
+          </a>
+          <p className="hint">o usa tu correo y contraseña</p>
+        </div>
+      )}
+
       {mode === 'login' ? (
         <form
           className="form"
@@ -153,6 +181,9 @@ export function AuthPage() {
           <button type="submit" className="btn btn--primary" disabled={busy}>
             {busy ? 'Entrando…' : 'Entrar'}
           </button>
+          <p className="hint">
+            <a href="#/recuperar">¿Olvidaste tu contraseña?</a>
+          </p>
         </form>
       ) : (
         <form

@@ -185,7 +185,12 @@ export interface PublicConfig {
   cancelWindowHours: number;
   maxAdvanceDays: number;
   maxActiveReservations: number;
+  /** S36: true only when the API runs with Google credentials. */
+  googleSignIn: boolean;
 }
+
+/** S36: a full page navigation, so Google receives the browser and not a fetch. */
+export const GOOGLE_SIGN_IN_URL = '/api/auth/google/start';
 
 export const api = {
   register: (input: { email: string; password: string; name: string; phone: string }) =>
@@ -197,6 +202,14 @@ export const api = {
   logout: () => request<{ ok: boolean }>('/auth/logout', { method: 'POST' }),
 
   me: () => request<{ user: User }>('/auth/me'),
+
+  /** S32: the answer is the same whether or not the email has an account. */
+  forgotPassword: (input: { email: string }) =>
+    request<{ ok: boolean }>('/auth/forgot-password', jsonBody(input)),
+
+  /** S33: a good token rotates the password and leaves this device signed in. */
+  resetPassword: (input: { token: string; password: string }) =>
+    request<{ user: User }>('/auth/reset-password', jsonBody(input)),
 
   config: () => request<PublicConfig>('/config'),
 
@@ -295,6 +308,15 @@ export function errorMessage(error: unknown): string {
       invalid_input: 'Revisa los datos: hay algo incompleto o mal escrito.',
       email_taken: 'Ese correo ya tiene una cuenta.',
       invalid_credentials: 'Correo o contraseña incorrectos.',
+      invalid_token:
+        'Ese enlace venció o ya se usó. Pide uno nuevo para elegir tu contraseña.',
+      phone_required:
+        'Antes de reservar necesitamos tu teléfono: el complejo lo usa para contactarte.',
+      google_not_configured: 'El acceso con Google no está disponible en este complejo.',
+      google_email_unverified: 'Google no confirmó ese correo. Usa otro método para entrar.',
+      google_exchange_failed: 'Google no respondió como esperábamos. Intenta de nuevo.',
+      invalid_state:
+        'El acceso con Google se interrumpió. Vuelve a intentarlo desde la pantalla de entrar.',
       invalid_current_password: 'La contraseña actual no es correcta.',
       current_password_required: 'Escribe tu contraseña actual para cambiarla.',
       email_immutable: 'El correo no se puede cambiar: identifica tu cuenta.',

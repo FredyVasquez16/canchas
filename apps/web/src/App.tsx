@@ -1,10 +1,14 @@
 import { useEffect, useState } from 'react';
 import { AccountPage } from './features/account/AccountPage.tsx';
-import { AuthPage } from './features/booking/AuthPage.tsx';
+import { AuthPage } from './features/auth/AuthPage.tsx';
+import { CompleteProfilePage } from './features/auth/CompleteProfilePage.tsx';
+import { RecoverPage } from './features/auth/RecoverPage.tsx';
+import { ResetPasswordPage } from './features/auth/ResetPasswordPage.tsx';
 import { BookingPage } from './features/booking/BookingPage.tsx';
 import { MinePage } from './features/booking/MinePage.tsx';
 import { LandingPage } from './features/landing/LandingPage.tsx';
 import { PanelPage } from './features/panel/PanelPage.tsx';
+import { needsPhoneCompletion } from './lib/profile.ts';
 import { useSession } from './lib/session.tsx';
 import {
   VENUE_CITY,
@@ -14,7 +18,20 @@ import {
   VENUE_PHONE_DIGITS,
 } from './lib/venue.ts';
 
-const ROUTES = ['', 'reservar', 'entrar', 'mis-reservas', 'cuenta', 'panel'] as const;
+const ROUTES = [
+  '',
+  'reservar',
+  'entrar',
+  'recuperar',
+  'nueva-clave',
+  'completar-perfil',
+  'mis-reservas',
+  'cuenta',
+  'panel',
+] as const;
+
+/** S38: the screens that need a working account, so they wait for the phone. */
+const PHONE_GATED_ROUTES = ['reservar', 'mis-reservas', 'cuenta'] as const;
 
 function currentRoute(): string {
   const hash = window.location.hash.replace(/^#\/?/, '');
@@ -46,6 +63,8 @@ export function App() {
   const { user, loading, signOut } = useSession();
   const isPanel = user !== null && user.role !== 'client';
   const known = (ROUTES as readonly string[]).includes(route);
+  const mustCompleteProfile =
+    needsPhoneCompletion(user) && (PHONE_GATED_ROUTES as readonly string[]).includes(route);
 
   return (
     <div className="app">
@@ -88,11 +107,15 @@ export function App() {
       </header>
 
       <main className="app-main">
-        {route === '' && <LandingPage />}
-        {route === 'reservar' && <BookingPage />}
+        {mustCompleteProfile && <CompleteProfilePage />}
+        {!mustCompleteProfile && route === '' && <LandingPage />}
+        {!mustCompleteProfile && route === 'reservar' && <BookingPage />}
         {route === 'entrar' && <AuthPage />}
-        {route === 'mis-reservas' && <MinePage />}
-        {route === 'cuenta' && <AccountPage />}
+        {route === 'recuperar' && <RecoverPage />}
+        {route === 'nueva-clave' && <ResetPasswordPage />}
+        {route === 'completar-perfil' && <CompleteProfilePage />}
+        {!mustCompleteProfile && route === 'mis-reservas' && <MinePage />}
+        {!mustCompleteProfile && route === 'cuenta' && <AccountPage />}
         {route === 'panel' && <PanelPage />}
         {!known && (
           <div className="stack">
