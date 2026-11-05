@@ -43,6 +43,9 @@ from zero. The API does not watch: restart it after changing it.
 | `#/` | Landing with the live free hours of today |
 | `#/reservar` | Booking board |
 | `#/entrar` | Sign in and registration |
+| `#/recuperar` | Ask for a password recovery link by email |
+| `#/nueva-clave` | Choose a new password from that link |
+| `#/completar-perfil` | Name and phone for a new Google account |
 | `#/mis-reservas` | Client reservations and cancellation |
 | `#/panel` | Owner and staff panel |
 
@@ -58,6 +61,9 @@ API:
 | `SMTP_PORT` | `587` | SMTP port |
 | `SMTP_SECURE` | unset | `"true"` for implicit TLS (port 465) |
 | `REMINDER_INTERVAL_MS` | `900000` | Reminder scheduler interval |
+| `WEB_BASE_URL` | `http://localhost:5173` | Base of the web app, used to build the recovery link |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | unset | Turns Google sign-in on; both are required |
+| `GOOGLE_REDIRECT_URI` | `http://localhost:3000/api/auth/google/callback` | Must match the Google Cloud console |
 
 Web (build time):
 
@@ -76,6 +82,39 @@ The API marks no-shows and sends reminders by itself, every 15 minutes. A manual
 DATABASE_PATH=./data/canchas.sqlite npm run job -w @canchas/api
 ```
 
+## Accounts
+
+A client who forgot the password asks for a link on `#/recuperar` and receives a mail with
+`#/nueva-clave?token=...`. The token lives 60 minutes, works once, and only its hash is
+stored; asking again invalidates the previous link. Finishing the change closes every
+session that existed before and leaves the device that made the change signed in. The answer
+is always the same, so the form cannot be used to discover which emails have an account.
+
+Without SMTP the recovery mail is written to the API log, so the flow works before a mail
+provider exists:
+
+```
+[mail] to=cliente@example.com subject="Recupera tu contraseña" text="... | http://localhost:5173/#/nueva-clave?token=XXXX | ..."
+```
+
+Copy that link into the browser, or configure SMTP (see above) to deliver it. Anyone who can
+read the API log can use the link, so do not leave it in a shared log on a real deployment.
+
+Google sign-in is **off** unless the API starts with `GOOGLE_CLIENT_ID` and
+`GOOGLE_CLIENT_SECRET`. To turn it on:
+
+1. In Google Cloud Console create an OAuth client of type "Web application".
+2. Authorized redirect URI: `http://localhost:3000/api/auth/google/callback`, or whatever
+   `GOOGLE_REDIRECT_URI` says.
+3. Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`, then restart the API.
+
+With the credentials absent the API answers `google_not_configured` and the web hides the
+button, so the app never shows a dead entry. A Google account arrives without a phone, so
+after the consent screen the app asks for name and phone on `#/completar-perfil`, and the API
+refuses a reservation with `phone_required` until it is saved. Such an account has no
+password: to also sign in with email and password, the client uses the recovery link once,
+which sets one.
+
 ## Checks
 
 ```bash
@@ -92,3 +131,4 @@ npm run build -w @canchas/web
   keeps the history and the statistics intact.
 - A failure mark is recorded automatically (late cancellation, or a reservation that ended
   without an arrival). The penalty days are always the owner's decision.
+- The recovery link is the only way to give a Google-only account a password.
