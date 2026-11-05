@@ -1,7 +1,7 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { UserRecord } from './db/users.ts';
 
-export function tokenFrom(request: FastifyRequest): string | null {
+export function cookieValue(request: FastifyRequest, name: string): string | null {
   const header = request.headers.cookie;
   if (!header) {
     return null;
@@ -12,11 +12,15 @@ export function tokenFrom(request: FastifyRequest): string | null {
     if (separator === -1) {
       continue;
     }
-    if (trimmed.slice(0, separator) === 'session') {
+    if (trimmed.slice(0, separator) === name) {
       return trimmed.slice(separator + 1);
     }
   }
   return null;
+}
+
+export function tokenFrom(request: FastifyRequest): string | null {
+  return cookieValue(request, 'session');
 }
 
 export function sessionCookie(token: string, ttlMs: number): string {

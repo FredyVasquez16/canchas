@@ -16,6 +16,8 @@ export interface User {
 
 export interface UserRecord extends User {
   passwordHash: string;
+  /** S37: the Google subject when the account was created or linked with Google. */
+  googleId: string | null;
 }
 
 interface UserRow {
@@ -27,6 +29,7 @@ interface UserRow {
   phone_normalized: string;
   role: Role;
   created_at: number;
+  google_id: string | null;
 }
 
 function toUser(row: UserRow): User {
@@ -42,7 +45,11 @@ function toUser(row: UserRow): User {
 }
 
 function toUserRecord(row: UserRow): UserRecord {
-  return { ...toUser(row), passwordHash: row.password_hash };
+  return {
+    ...toUser(row),
+    passwordHash: row.password_hash,
+    googleId: row.google_id ?? null,
+  };
 }
 
 export interface CreateUserInput {
@@ -51,6 +58,7 @@ export interface CreateUserInput {
   name: string;
   phone: string;
   role?: Role;
+  googleId?: string;
   now: number;
 }
 
@@ -64,12 +72,13 @@ export function createUser(db: Db, input: CreateUserInput): User {
     phone_normalized: normalizePhone(input.phone),
     role: input.role ?? 'client',
     created_at: input.now,
+    google_id: input.googleId ?? null,
   };
 
   runSql(
     db,
-    `INSERT INTO users (id, email, password_hash, name, phone, phone_normalized, role, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO users (id, email, password_hash, name, phone, phone_normalized, role, created_at, google_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       row.id,
       row.email,
@@ -79,6 +88,7 @@ export function createUser(db: Db, input: CreateUserInput): User {
       row.phone_normalized,
       row.role,
       row.created_at,
+      row.google_id,
     ],
   );
 
@@ -95,6 +105,17 @@ export function findUserByEmail(db: Db, email: string): UserRecord | null {
 export function findUserById(db: Db, id: string): UserRecord | null {
   const row = oneRow<UserRow>(db, 'SELECT * FROM users WHERE id = ?', [id]);
   return row ? toUserRecord(row) : null;
+}
+
+/** S37: the Google subject is the way back into the account on every later sign-in. */
+export function findUserByGoogleId(db: Db, googleId: string): UserRecord | null {
+  const row = oneRow<UserRow>(db, 'SELECT * FROM users WHERE google_id = ?', [googleId]);
+  return row ? toUserRecord(row) : null;
+}
+
+/** S37: an existing account with the same verified email is linked, never duplicated. */
+export function linkGoogleId(db: Db, userId: string, googleId: string): void {
+  runSql(db, 'UPDATE users SET google_id = ? WHERE id = ?', [googleId, userId]);
 }
 
 export function findUserByPhone(db: Db, phone: string): UserRecord | null {

@@ -1,24 +1,50 @@
 import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../src/app.ts';
 import { openDatabase } from '../src/db/index.ts';
+import type { GoogleConfig } from '../src/google.ts';
+import type { Mailer } from '../src/jobs.ts';
+import type { MailMessage } from '../src/mailer.ts';
 import { seedCourts } from '../src/seed.ts';
 import { zonedToEpoch } from '@canchas/core';
 
 export const TZ = 'America/Tegucigalpa';
 export const NOW = zonedToEpoch('2025-03-10', 8, TZ);
 
+export interface TestOptions {
+  /** Replaces the recording mailer when a test needs a failing or custom channel. */
+  mailer?: Mailer;
+  google?: GoogleConfig | null;
+  webBaseUrl?: string;
+  fetchImpl?: typeof fetch;
+}
+
 export interface TestContext {
   app: FastifyInstance;
   db: ReturnType<typeof openDatabase>;
   clock: { now: number };
+  /** Every message the app handed to the mail channel, oldest first. */
+  mails: MailMessage[];
 }
 
-export function createTestContext(): TestContext {
+export function createTestContext(options: TestOptions = {}): TestContext {
   const db = openDatabase(':memory:');
   seedCourts(db, NOW);
   const clock = { now: NOW };
-  const app = buildApp({ db, now: () => clock.now });
-  return { app, db, clock };
+  const mails: MailMessage[] = [];
+  const mailer: Mailer = options.mailer ?? {
+    send: (message) => {
+      mails.push(message);
+    },
+  };
+  const app = buildApp({
+    db,
+    now: () => clock.now,
+    mailer,
+    webBaseUrl: options.webBaseUrl ?? 'http://localhost:5173',
+    google: options.google ?? null,
+    fetchImpl: options.fetchImpl,
+  });
+  return { app, db, clock, mails };
 }
 
 function extractSessionCookie(headers: Record<string, unknown>): string {

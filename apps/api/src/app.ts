@@ -13,7 +13,7 @@ import {
   type Court,
   type CourtReservation,
 } from '@canchas/core';
-import { SESSION_TTL_MS, apiConfig } from './config.ts';
+import { SESSION_TTL_MS, DEFAULT_WEB_BASE_URL, apiConfig } from './config.ts';
 import type { Db } from './db/index.ts';
 import { createUser, findUserByEmail, type UserRecord } from './db/users.ts';
 import {
@@ -37,12 +37,25 @@ import {
 import { findActiveBlock } from './db/blocks.ts';
 import { isValidHonduranPhone } from './phone.ts';
 import { CLEAR_COOKIE, publicUser, reject, sessionCookie, tokenFrom } from './http.ts';
+import { ConsoleMailer } from './mailer.ts';
+import type { Mailer } from './jobs.ts';
+import type { GoogleConfig } from './google.ts';
 import { registerAdminRoutes } from './routes/admin.ts';
 import { registerAccountRoutes } from './routes/account.ts';
+import { registerGoogleRoutes } from './routes/google.ts';
+import { registerRecoveryRoutes } from './routes/recovery.ts';
 
 export interface AppDeps {
   db: Db;
   now?: () => number;
+  /** S35: the channel that carries reminders and the recovery link. */
+  mailer?: Mailer;
+  /** S31: where the recovery link points; the web dev server by default. */
+  webBaseUrl?: string;
+  /** S36: null or absent keeps Google sign-in off. */
+  google?: GoogleConfig | null;
+  /** S37: injected by the tests so the suite never reaches the network. */
+  fetchImpl?: typeof fetch;
 }
 
 const registerSchema = z.object({
@@ -104,6 +117,7 @@ export function buildApp(deps: AppDeps, options: { logger?: boolean } = {}): Fas
       cancelWindowHours: apiConfig.cancelWindowHours,
       maxAdvanceDays: apiConfig.maxAdvanceDays,
       maxActiveReservations: apiConfig.maxActiveReservations,
+      googleSignIn: deps.google !== undefined && deps.google !== null,
     }),
   );
 
@@ -224,6 +238,12 @@ export function buildApp(deps: AppDeps, options: { logger?: boolean } = {}): Fas
     const user = currentUser(request);
     if (!user) {
       return reject(reply, 401, 'unauthenticated');
+    }
+
+    // S38: a Google account has no phone until it completes the profile, and the venue
+    // needs that phone to reach the client.
+    if (user.phone.trim() === '') {
+      return reject(reply, 403, 'phone_required');
     }
 
     const parsed = createReservationSchema.safeParse(request.body);
@@ -363,6 +383,29 @@ export function buildApp(deps: AppDeps, options: { logger?: boolean } = {}): Fas
   });
 
   registerAccountRoutes(app, { db, now });
+  registerRecoveryRoutes(app, {
+    db,
+    now,
+    mailer: deps.mailer ?? new ConsoleMailer(),
+    webBaseUrl: deps.webBaseUrl ?? DEFAULT_WEB_BASE_URL,
+  });
+  if (deps.google) {
+    registerGoogleRoutes(app, {
+      db,
+      now,
+      google: deps.google,
+      webBaseUrl: deps.webBaseUrl ?? DEFAULT_WEB_BASE_URL,
+      fetchImpl: deps.fetchImpl,
+    });
+  } else {
+    // S36: with no credentials the flow answers exactly that, instead of a 404 nobody reads.
+    app.get('/api/auth/google/start', async (_request, reply) =>
+      reject(reply, 503, 'google_not_configured'),
+    );
+    app.get('/api/auth/google/callback', async (_request, reply) =>
+      reject(reply, 503, 'google_not_configured'),
+    );
+  }
   registerAdminRoutes(app, { db, now });
 
   return app;

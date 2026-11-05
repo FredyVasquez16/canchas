@@ -91,4 +91,27 @@ export const MIGRATIONS: Migration[] = [
       ALTER TABLE reservations ADD COLUMN reminded_at INTEGER;
     `,
   },
+  {
+    // S31: one single-use link per account. Only the hash of the token is stored.
+    version: 3,
+    sql: `
+      CREATE TABLE password_resets (
+        token_hash TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+        created_at INTEGER NOT NULL,
+        expires_at INTEGER NOT NULL,
+        used_at INTEGER
+      );
+      CREATE INDEX password_resets_user_idx ON password_resets (user_id);
+    `,
+  },
+  {
+    // S37: a Google account is recognised by the subject Google gave it, one row per subject.
+    version: 4,
+    sql: `
+      ALTER TABLE users ADD COLUMN google_id TEXT;
+      CREATE UNIQUE INDEX users_google_id_idx ON users (google_id)
+        WHERE google_id IS NOT NULL;
+    `,
+  },
 ];

@@ -4,6 +4,12 @@ import { findUserById, type UserRecord } from './db/users.ts';
 
 const KEY_LENGTH = 64;
 
+/**
+ * S40: an account created with Google stores no usable password. `verifyPassword` already
+ * refuses anything that is not a scrypt tuple, so this value can never match a guess.
+ */
+export const NO_PASSWORD_HASH = 'google-only';
+
 export function hashPassword(password: string): string {
   const salt = randomBytes(16).toString('hex');
   const derived = scryptSync(password, salt, KEY_LENGTH).toString('hex');
@@ -64,4 +70,9 @@ export function destroyOtherSessions(db: Db, userId: string, keepToken: string):
     userId,
     hashToken(keepToken),
   );
+}
+
+/** S33: a recovered password signs the account out everywhere, including this device. */
+export function destroyAllSessions(db: Db, userId: string): void {
+  db.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId);
 }

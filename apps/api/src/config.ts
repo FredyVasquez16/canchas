@@ -11,6 +11,12 @@ export const MAX_ACTIVE_RESERVATIONS = 2;
 
 export const SESSION_TTL_MS = 30 * 24 * 3_600_000;
 
+/** S31: a recovery link lives one hour, counted from the moment the client asked for it. */
+export const PASSWORD_RESET_TTL_MS = 3_600_000;
+
+/** S31: where the recovery link points when the deployment does not say otherwise. */
+export const DEFAULT_WEB_BASE_URL = 'http://localhost:5173';
+
 /** S24: the API process pushes reminders itself; one pass every 15 minutes by default. */
 export const REMINDER_INTERVAL_MS = 900_000;
 

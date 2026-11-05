@@ -1,6 +1,7 @@
 import { buildApp } from './app.ts';
 import { reminderIntervalMs } from './config.ts';
 import { openDatabase } from './db/index.ts';
+import { googleConfigFromEnv } from './google.ts';
 import { createMailer } from './mailer.ts';
 import { startScheduler } from './scheduler.ts';
 import { seedCourts } from './seed.ts';
@@ -15,7 +16,13 @@ seedCourts(db, Date.now());
 // S24: choose the mail channel once and report it, never the credentials themselves.
 const { mailer, status } = createMailer(process.env);
 
-const app = buildApp({ db }, { logger: true });
+// S36: Google sign-in only exists when the venue supplied its own OAuth client.
+const google = googleConfigFromEnv(process.env);
+
+const app = buildApp(
+  { db, mailer, google, webBaseUrl: process.env.WEB_BASE_URL },
+  { logger: true },
+);
 
 app
   .listen({ port, host: '0.0.0.0' })
@@ -25,6 +32,7 @@ app
       `reminder mail transport: ${status.transport} from=${status.from || '(unset)'} every ${schedulerIntervalMs} ms` +
         (status.missing.length > 0 ? ` missing=${status.missing.join(',')}` : ''),
     );
+    app.log.info(`google sign-in: ${google ? `on (redirect ${google.redirectUri})` : 'off'}`);
 
     // S24: reminders run inside this process, so nobody has to launch a command.
     const stopScheduler = startScheduler({
