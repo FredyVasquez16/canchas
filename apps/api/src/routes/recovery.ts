@@ -23,7 +23,9 @@ const forgotSchema = z.object({
 });
 
 const resetSchema = z.object({
-  token: z.string().trim().min(16).max(200),
+  // Any non-empty token reaches the lookup, so a truncated or invented link answers
+  // `invalid_token` instead of a form error (S34).
+  token: z.string().trim().min(1).max(200),
   password: z.string().min(8).max(200),
 });
 
@@ -82,10 +84,14 @@ export function registerRecoveryRoutes(app: FastifyInstance, deps: RecoveryDeps)
       });
 
       const message = recoveryMessage(user.email, user.name, resetLink(webBaseUrl, token));
+      // S32: the answer never waits on the mail channel. Awaiting it would make a slow
+      // provider answer later for a real account than for an unknown one, which is a
+      // scriptable oracle even though the body is identical.
       try {
-        await mailer.send(message);
+        void Promise.resolve(mailer.send(message)).catch((error: unknown) => {
+          console.error('[mail] recovery message failed', error);
+        });
       } catch (error) {
-        // S32 holds even when the channel is down: the client gets the same answer.
         console.error('[mail] recovery message failed', error);
       }
     }

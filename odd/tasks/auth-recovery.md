@@ -58,3 +58,11 @@ flag por variables de entorno).
 L4 (user, chosen option, verbatim): Pedirlo en el mismo alta. Preview authoring: después del
 consentimiento de Google, una pantalla pide el teléfono antes de terminar el alta; no hay
 sesión usable hasta cargar el teléfono.
+
+L5 (verification, 2026-11-04): an independent read-only review returned PASS on S31 through
+S40 with three advisories, and all three were closed before delivery. A truncated or invented
+token now answers `invalid_token` instead of `invalid_input`, as S34 always said. The Google
+`state` carries its issue time and dies on the server after ten minutes, so a retained cookie
+cannot replay a callback (S39). `forgot-password` no longer waits on the mail channel, which
+removes the response-time difference between a registered and an unknown email when SMTP is
+configured (S32). API tests 102 to 105, web 26, typecheck and web build green.

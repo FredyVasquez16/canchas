@@ -63,7 +63,7 @@ export function registerGoogleRoutes(app: FastifyInstance, deps: GoogleDeps): vo
   const { db, now, google, fetchImpl } = deps;
 
   app.get('/api/auth/google/start', async (_request, reply) => {
-    const state = createGoogleState(google.clientSecret);
+    const state = createGoogleState(google.clientSecret, now());
     reply.header('Set-Cookie', googleStateCookie(state));
     return reply.redirect(googleAuthorizeUrl(google, state), 302);
   });
@@ -74,12 +74,14 @@ export function registerGoogleRoutes(app: FastifyInstance, deps: GoogleDeps): vo
     const code = typeof query.code === 'string' ? query.code : '';
     const cookieState = cookieValue(request, 'oauth_state') ?? '';
 
+    const timestamp = now();
+
     // S39: a callback this browser did not start cannot sign anyone in.
     if (
       state === '' ||
       cookieState === '' ||
       state !== cookieState ||
-      !isValidGoogleState(google.clientSecret, state)
+      !isValidGoogleState(google.clientSecret, state, timestamp)
     ) {
       return reject(reply, 400, 'invalid_state');
     }
@@ -101,7 +103,6 @@ export function registerGoogleRoutes(app: FastifyInstance, deps: GoogleDeps): vo
       return reject(reply, 403, 'google_email_unverified');
     }
 
-    const timestamp = now();
     let user: UserRecord;
     db.exec('BEGIN IMMEDIATE');
     try {

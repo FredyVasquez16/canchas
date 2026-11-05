@@ -40,27 +40,40 @@ export function googleAuthorizeUrl(config: GoogleConfig, state: string): string 
   return url.toString();
 }
 
-/** S39: the state names a nonce and a signature only this client secret can produce. */
-function signState(secret: string, nonce: string): string {
-  return createHmac('sha256', secret).update(`google-state:${nonce}`).digest('base64url');
+/** S39: the state names a nonce, its issue time and a signature only this secret produces. */
+function signState(secret: string, nonce: string, issuedAt: number): string {
+  return createHmac('sha256', secret)
+    .update(`google-state:${nonce}:${issuedAt}`)
+    .digest('base64url');
 }
 
-export function createGoogleState(secret: string): string {
+export function createGoogleState(secret: string, now: number): string {
   const nonce = randomBytes(16).toString('base64url');
-  return `${nonce}.${signState(secret, nonce)}`;
+  return `${nonce}.${now}.${signState(secret, nonce, now)}`;
 }
 
-export function isValidGoogleState(secret: string, state: string): boolean {
-  const separator = state.indexOf('.');
-  if (separator <= 0) {
+/**
+ * S39: a state that carries its own issue time dies on the server after ten minutes, so a
+ * retained cookie cannot be replayed later even though the signature is still valid.
+ */
+export function isValidGoogleState(secret: string, state: string, now: number): boolean {
+  const parts = state.split('.');
+  if (parts.length !== 3) {
     return false;
   }
-  const nonce = state.slice(0, separator);
-  const signature = state.slice(separator + 1);
+  const [nonce = '', issuedAtRaw = '', signature = ''] = parts;
   if (nonce === '' || signature === '') {
     return false;
   }
-  const expected = Buffer.from(signState(secret, nonce));
+  const issuedAt = Number(issuedAtRaw);
+  if (!Number.isFinite(issuedAt)) {
+    return false;
+  }
+  const age = now - issuedAt;
+  if (age < 0 || age > GOOGLE_STATE_MAX_AGE_SECONDS * 1000) {
+    return false;
+  }
+  const expected = Buffer.from(signState(secret, nonce, issuedAt));
   const received = Buffer.from(signature);
   return expected.length === received.length && timingSafeEqual(expected, received);
 }

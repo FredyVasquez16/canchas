@@ -176,6 +176,26 @@ describe('GET /api/auth/google/callback', () => {
     expect(Number(users[0]!.total)).toBe(0);
   });
 
+  it('refuses a state older than ten minutes even with its own cookie', async () => {
+    const fake = fakeGoogle({});
+    context = createTestContext({ google: GOOGLE, fetchImpl: fake.fetchImpl });
+    const started = await start(context);
+    const state = googleState(String(started.headers['location']));
+    const cookie = stateCookie(started.headers as Record<string, unknown>)!;
+
+    context.clock.now += 10 * 60_000 + 1_000;
+    const response = await callback(context, state, cookie);
+
+    expect(response.statusCode).toBe(400);
+    expect((response.json() as { error: string }).error).toBe('invalid_state');
+    expect(sessionHeader(response.headers as Record<string, unknown>)).toBeNull();
+    expect(fake.calls).toHaveLength(0);
+    const users = context.db.prepare('SELECT COUNT(*) AS total FROM users').all() as Array<{
+      total: number;
+    }>;
+    expect(Number(users[0]!.total)).toBe(0);
+  });
+
   it('creates the client, sends it to complete the phone and never allows a password', async () => {
     const fake = fakeGoogle({});
     context = createTestContext({ google: GOOGLE, fetchImpl: fake.fetchImpl });

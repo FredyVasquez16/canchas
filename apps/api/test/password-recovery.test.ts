@@ -198,6 +198,29 @@ describe('POST /api/auth/reset-password', () => {
     expect(response.headers['set-cookie']).toBeUndefined();
   });
 
+  it('refuses a short or invented token as a dead link, not as a form mistake', async () => {
+    context = createTestContext();
+
+    for (const token of ['abc', 'A'.repeat(43), 'x'.repeat(80)]) {
+      const response = await reset(context, { token, password: 'nueva12345' });
+      expect(response.statusCode).toBe(400);
+      expect((response.json() as { error: string }).error).toBe('invalid_token');
+      expect(response.headers['set-cookie']).toBeUndefined();
+    }
+  });
+
+  it('answers 202 even when the mail channel never resolves', async () => {
+    context = createTestContext({ mailer: { send: () => new Promise<void>(() => {}) } });
+    await registerClient(context, { email: 'lento@example.com' });
+
+    const known = await forgot(context, 'lento@example.com');
+    const unknown = await forgot(context, 'nadie@example.com');
+
+    expect(known.statusCode).toBe(202);
+    expect(unknown.statusCode).toBe(202);
+    expect(known.body).toBe(unknown.body);
+  });
+
   it('refuses a short password and keeps the link usable', async () => {
     context = createTestContext();
     await registerClient(context, { email: 'corta@example.com', password: 'original123' });
