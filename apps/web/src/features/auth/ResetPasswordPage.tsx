@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { api, errorMessage } from '../../lib/api.ts';
 import { resetTokenFromHash } from '../../lib/recovery.ts';
 import { useSession } from '../../lib/session.tsx';
@@ -6,11 +6,23 @@ import { useSession } from '../../lib/session.tsx';
 /** S33, S34: the screen behind the recovery link. A dead link says so and offers another. */
 export function ResetPasswordPage() {
   const { refresh } = useSession();
-  const [token] = useState(() => resetTokenFromHash(window.location.hash));
+  const [token, setToken] = useState(() => resetTokenFromHash(window.location.hash));
   const [password, setPassword] = useState('');
   const [passwordConfirm, setPasswordConfirm] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  // The route is the same with and without a token, so React keeps this component mounted
+  // when the client opens a newer link in the same tab. Read the token again on every hash
+  // change instead of trusting the first render.
+  useEffect(() => {
+    const onHashChange = () => {
+      setToken(resetTokenFromHash(window.location.hash));
+      setError(null);
+    };
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
 
   if (!token) {
     return (

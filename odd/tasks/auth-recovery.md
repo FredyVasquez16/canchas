@@ -66,3 +66,13 @@ token now answers `invalid_token` instead of `invalid_input`, as S34 always said
 cannot replay a callback (S39). `forgot-password` no longer waits on the mail channel, which
 removes the response-time difference between a registered and an unknown email when SMTP is
 configured (S32). API tests 102 to 105, web 26, typecheck and web build green.
+
+L6 (browser, 2026-11-04): ego lite walked the whole flow on the running app (API on :3000,
+web on :5173) and found a real defect no unit test could see: navigating from
+`#/nueva-clave` without a token to `#/nueva-clave?token=…` in the same tab kept the "Enlace
+incompleto" screen, because the route string is identical and React never remounted the page.
+The token is now re-read on every `hashchange`. The flow then passed end to end: register,
+ask for the link, read it from the API log, incomplete link, real link, new password, account
+screen, replay refused, sign in with the new password accepted and with the old one refused.
+The Google button is absent from `#/entrar`, which is what S36 requires while the credentials
+are missing.
