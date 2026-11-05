@@ -1,5 +1,5 @@
-import { useState, type FormEvent } from 'react';
-import { api, errorMessage } from '../../lib/api.ts';
+import { useEffect, useState, type FormEvent } from 'react';
+import { api, errorMessage, type PublicConfig } from '../../lib/api.ts';
 
 /** S32: the same confirmation for every email, so the form cannot list accounts. */
 export function RecoverPage() {
@@ -7,6 +7,24 @@ export function RecoverPage() {
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [config, setConfig] = useState<PublicConfig | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void api
+      .config()
+      .then((loaded) => {
+        if (!cancelled) {
+          setConfig(loaded);
+        }
+      })
+      .catch(() => {
+        // Without the configuration the screen keeps its neutral wording.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function submit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
@@ -40,13 +58,24 @@ export function RecoverPage() {
       </div>
 
       {sent ? (
-        <div className="notice notice--ok" role="status">
-          <p>
-            Si ese correo tiene una cuenta, el enlace ya va en camino. Revisa tu correo y la
-            carpeta de spam.
-          </p>
-          <p>El enlace vence en 60 minutos y sirve una sola vez.</p>
-        </div>
+        <>
+          <div className="notice notice--ok" role="status">
+            <p>
+              Si ese correo tiene una cuenta, el enlace ya va en camino. Revisa tu correo y la
+              carpeta de spam.
+            </p>
+            <p>El enlace vence en 60 minutos y sirve una sola vez.</p>
+          </div>
+          {config?.mailTransport === 'console' && (
+            <div className="notice notice--info" role="note">
+              <p>
+                Este servidor todavía no tiene un proveedor de correo configurado, así que no
+                envía correos. El mensaje con el enlace quedó escrito en la salida de la API, para
+                quien administra el sistema.
+              </p>
+            </div>
+          )}
+        </>
       ) : (
         <form className="form" noValidate onSubmit={(event) => void submit(event)}>
           {error && (

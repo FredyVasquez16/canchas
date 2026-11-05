@@ -29,6 +29,10 @@ S39. The Google flow carries a signed `state` in an httpOnly cookie, so a callba
 browser did not start cannot sign anyone in.
 S40. A Google account cannot sign in with email and password until it sets a password
 through the recovery flow.
+S41. When the server cannot send mail because no SMTP is configured, the recovery screen
+says so instead of promising an email that will never arrive, and the API warns at startup
+that its messages only reach the log ("no me mando nada, lo busque en la bandeja de
+recibidos y en el de spam").
 
 ## Tasks
 
@@ -40,6 +44,7 @@ through the recovery flow.
 | T29 | S31, S32, S34 | Web: "¿Olvidaste tu contraseña?" and `#/nueva-clave` screens | done — a880fb3 |
 | T30 | S36, S38 | Web: Google entry only when enabled, `#/completar-perfil` route and its gate | done — a880fb3 |
 | T31 | — | Docs: README environment variables and routes, decisions recorded | done — README and this document |
+| T32 | S41 | Web and API: the recovery screen admits a console mail channel instead of promising an email, and startup warns that mail is not leaving | done — this round |
 
 ## Log
 
@@ -76,3 +81,14 @@ ask for the link, read it from the API log, incomplete link, real link, new pass
 screen, replay refused, sign in with the new password accepted and with the old one refused.
 The Google button is absent from `#/entrar`, which is what S36 requires while the credentials
 are missing.
+
+L7 (user, verbatim): lo probe puse el correo de mi cuenta que ya esta creaddo, el correo
+fredy16v@gmail.com pero no me mando nada, lo busque en la bandeja de recibidos y en el de spam,
+y no me mando nada para cambiar la contrasena
+
+L8 (diagnosis, from the running API log): the four requests to `/api/auth/forgot-password`
+answered 202 and the four messages to `fredy16v@gmail.com` were written by the console
+mailer; nothing left the process because `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS` and
+`MAIL_FROM` are unset. The owner chose to keep the log channel for now, so S41 was added: the
+screen must say it. Either way, every new request invalidates the previous link, so only the
+newest message in the log works.

@@ -16,6 +16,7 @@ export interface TestOptions {
   google?: GoogleConfig | null;
   webBaseUrl?: string;
   fetchImpl?: typeof fetch;
+  mailTransport?: 'smtp' | 'console';
 }
 
 export interface TestContext {
@@ -43,6 +44,7 @@ export function createTestContext(options: TestOptions = {}): TestContext {
     webBaseUrl: options.webBaseUrl ?? 'http://localhost:5173',
     google: options.google ?? null,
     fetchImpl: options.fetchImpl,
+    mailTransport: options.mailTransport,
   });
   return { app, db, clock, mails };
 }

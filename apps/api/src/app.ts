@@ -56,6 +56,11 @@ export interface AppDeps {
   google?: GoogleConfig | null;
   /** S37: injected by the tests so the suite never reaches the network. */
   fetchImpl?: typeof fetch;
+  /**
+   * S35: whether mail can actually leave the process. 'console' means the messages are
+   * printed to the API log, and the web says so instead of promising an email.
+   */
+  mailTransport?: 'smtp' | 'console';
 }
 
 const registerSchema = z.object({
@@ -118,6 +123,7 @@ export function buildApp(deps: AppDeps, options: { logger?: boolean } = {}): Fas
       maxAdvanceDays: apiConfig.maxAdvanceDays,
       maxActiveReservations: apiConfig.maxActiveReservations,
       googleSignIn: deps.google !== undefined && deps.google !== null,
+      mailTransport: deps.mailTransport ?? 'smtp',
     }),
   );
 

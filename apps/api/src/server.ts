@@ -20,7 +20,7 @@ const { mailer, status } = createMailer(process.env);
 const google = googleConfigFromEnv(process.env);
 
 const app = buildApp(
-  { db, mailer, google, webBaseUrl: process.env.WEB_BASE_URL },
+  { db, mailer, google, webBaseUrl: process.env.WEB_BASE_URL, mailTransport: status.transport },
   { logger: true },
 );
 
@@ -33,6 +33,13 @@ app
         (status.missing.length > 0 ? ` missing=${status.missing.join(',')}` : ''),
     );
     app.log.info(`google sign-in: ${google ? `on (redirect ${google.redirectUri})` : 'off'}`);
+    if (status.transport === 'console') {
+      // S35: say it once and loudly, so nobody waits for an email that never leaves.
+      app.log.warn(
+        'mail is NOT leaving this process: recovery links and reminders are printed to this log' +
+          (status.missing.length > 0 ? ` (missing ${status.missing.join(', ')})` : ''),
+      );
+    }
 
     // S24: reminders run inside this process, so nobody has to launch a command.
     const stopScheduler = startScheduler({

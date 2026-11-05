@@ -187,6 +187,8 @@ export interface PublicConfig {
   maxActiveReservations: number;
   /** S36: true only when the API runs with Google credentials. */
   googleSignIn: boolean;
+  /** S35: 'console' means mail is only printed to the API log, never sent. */
+  mailTransport: 'smtp' | 'console';
 }
 
 /** S36: a full page navigation, so Google receives the browser and not a fetch. */

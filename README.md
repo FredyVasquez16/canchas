@@ -99,6 +99,8 @@ provider exists:
 
 Copy that link into the browser, or configure SMTP (see above) to deliver it. Anyone who can
 read the API log can use the link, so do not leave it in a shared log on a real deployment.
+While the channel is the console, the recovery screen says so instead of promising an email,
+and the API warns at startup that its mail is not leaving the process.
 
 Google sign-in is **off** unless the API starts with `GOOGLE_CLIENT_ID` and
 `GOOGLE_CLIENT_SECRET`. To turn it on:
