@@ -45,8 +45,10 @@ vulnerables (dev) … actualizá a vitest 5").
 | T36 | S44, S45 | API: `hours` max 24 in the booking schema, generic error handler with no internals | done — 284d4d3 |
 | T37 | S46 | Tooling: vitest 5, lockfile updated, whole suite still green | done — 8e41e54 |
 
-Slice boundary: the change is 646 authored lines in two commits (lock files excluded), so the
-review unit is the API commit `284d4d3`; `8e41e54` only moves a dev dependency.
+Slice boundary: the change is 901 authored lines in four commits (lock files excluded), so the
+review units are the API commit `284d4d3` (limits, async hashing, cookies, error handler) and
+`0f944b2` (the four advisories the review of that commit found); `8e41e54` only moves a dev
+dependency and `29a1296` only touches documentation.
 
 ## Log
 
