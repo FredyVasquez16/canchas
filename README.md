@@ -62,6 +62,7 @@ API:
 | `SMTP_SECURE` | unset | `"true"` for implicit TLS (port 465) |
 | `REMINDER_INTERVAL_MS` | `900000` | Reminder scheduler interval |
 | `WEB_BASE_URL` | `http://localhost:5173` | Base of the web app, used to build the recovery link |
+| `COOKIE_SECURE` | unset | `"true"` marks the session cookie `Secure`; `"false"` never does; unset follows `NODE_ENV=production` |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | unset | Turns Google sign-in on; both are required |
 | `GOOGLE_REDIRECT_URI` | `http://localhost:3000/api/auth/google/callback` | Must match the Google Cloud console |
 
@@ -116,6 +117,21 @@ after the consent screen the app asks for name and phone on `#/completar-perfil`
 refuses a reservation with `phone_required` until it is saved. Such an account has no
 password: to also sign in with email and password, the client uses the recovery link once,
 which sets one.
+
+## Limits
+
+The auth routes refuse excess attempts with `429` and a `Retry-After` header, so a burst
+cannot freeze the API or flood a mailbox. The numbers live in `apps/api/src/config.ts`:
+
+| Route | Per account | Per ip | Window |
+| --- | --- | --- | --- |
+| `POST /api/auth/login` | 10 | 30 | 5 minutes |
+| `POST /api/auth/register` | — | 10 | 1 hour |
+| `POST /api/auth/forgot-password` | 5 | 20 | 15 minutes |
+
+The per-ip limit is deliberately loose: many clients of the venue share one carrier address,
+so the per-account count is the one that stops a brute force. A limited login is refused even
+with the right password until the window passes.
 
 ## Checks
 
