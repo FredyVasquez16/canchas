@@ -1,5 +1,5 @@
 import { buildApp } from './app.ts';
-import { cookieSecure, reminderIntervalMs } from './config.ts';
+import { cookieSecure, reminderIntervalMs, trustProxy } from './config.ts';
 import { openDatabase } from './db/index.ts';
 import { googleConfigFromEnv } from './google.ts';
 import { createMailer } from './mailer.ts';
@@ -27,6 +27,7 @@ const app = buildApp(
     webBaseUrl: process.env.WEB_BASE_URL,
     mailTransport: status.transport,
     cookieSecure: cookieSecure(process.env),
+    trustProxy: trustProxy(process.env),
   },
   { logger: true },
 );
@@ -40,6 +41,7 @@ app
         (status.missing.length > 0 ? ` missing=${status.missing.join(',')}` : ''),
     );
     app.log.info(`google sign-in: ${google ? `on (redirect ${google.redirectUri})` : 'off'}`);
+    app.log.info(`trust proxy: ${trustProxy(process.env) ? 'on (forwarded client address)' : 'off (socket address)'}`);
     if (status.transport === 'console') {
       // S35: say it once and loudly, so nobody waits for an email that never leaves.
       app.log.warn(

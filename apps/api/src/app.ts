@@ -73,6 +73,8 @@ export interface AppDeps {
   mailTransport?: 'smtp' | 'console';
   /** S43: marks the session cookie `Secure` when the deployment speaks TLS. */
   cookieSecure?: boolean;
+  /** S42: read the forwarded client address; only for a deployment behind its own proxy. */
+  trustProxy?: boolean;
 }
 
 const registerSchema = z.object({
@@ -116,7 +118,7 @@ function toCoreCourt(court: {
 export function buildApp(deps: AppDeps, options: { logger?: boolean } = {}): FastifyInstance {
   const { db } = deps;
   const now = deps.now ?? (() => Date.now());
-  const app = Fastify({ logger: options.logger ?? false });
+  const app = Fastify({ logger: options.logger ?? false, trustProxy: deps.trustProxy ?? false });
   const secureCookies = deps.cookieSecure ?? false;
   const limiter = createRateLimiter({ now });
 
@@ -157,7 +159,13 @@ export function buildApp(deps: AppDeps, options: { logger?: boolean } = {}): Fas
   );
 
   app.post('/api/auth/register', async (request, reply) => {
-    // S42: the ip limit runs before any hashing work happens.
+    const parsed = registerSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reject(reply, 400, 'invalid_input');
+    }
+
+    // S42: the schema runs first, so a typo does not spend the client's hourly budget; the
+    // limit runs before any hashing work happens.
     const registerLimit = limiter.check(
       `register:ip:${request.ip}`,
       REGISTER_PER_IP_LIMIT,
@@ -167,10 +175,6 @@ export function buildApp(deps: AppDeps, options: { logger?: boolean } = {}): Fas
       return tooMany(reply, registerLimit.retryAfterSeconds);
     }
 
-    const parsed = registerSchema.safeParse(request.body);
-    if (!parsed.success) {
-      return reject(reply, 400, 'invalid_input');
-    }
     if (findUserByEmail(db, parsed.data.email)) {
       return reject(reply, 409, 'email_taken');
     }
@@ -212,6 +216,10 @@ export function buildApp(deps: AppDeps, options: { logger?: boolean } = {}): Fas
     if (!user || !(await verifyPassword(parsed.data.password, user.passwordHash))) {
       return reject(reply, 401, 'invalid_credentials');
     }
+
+    // S42: a right password clears this account's counter, so ten honest sign-ins in a row
+    // are never punished and only failed guesses accumulate.
+    limiter.reset(`login:account:${parsed.data.email.trim().toLowerCase()}`);
 
     const token = createSession(db, user.id, now(), SESSION_TTL_MS);
     reply.header('Set-Cookie', sessionCookie(token, SESSION_TTL_MS, secureCookies));

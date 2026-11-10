@@ -77,3 +77,19 @@ simultaneous logins instead of 20, because the new per-account limit refuses the
 asynchronous hashing itself is pinned by asserting that `hashPassword` returns a Promise and
 keeps the `scrypt:salt:hash` format. Results: core 58, API 122, web 26, typecheck clean, web
 build green, `npm audit` 0 vulnerabilities.
+
+L5 (verification, 2026-11-04): the independent read-only review returned PASS on S42 through
+S46 with no blockers and five advisories, and four were closed in the same round. `trustProxy`
+was off, so behind the reverse proxy that S43 itself assumes every client shared the proxy
+address and the per-ip limits became a venue-wide cap; `TRUST_PROXY=true` now feeds Fastify
+the forwarded address, off by default because a direct deployment would let any client forge
+it. A successful login counted against the account limit, so ten honest sign-ins ended in
+429; a right password now resets that account's counter. The register limit ran before the
+schema, so ten malformed bodies spent the hourly budget; the schema runs first, as in login.
+`REGISTER_PER_IP_LIMIT` went from 10 to 30 per hour, because registration is one-shot and the
+flood it stopped is now cheap to absorb. Kept and documented instead: the counter lives in
+the process (a restart clears it, two instances do not share it), the 4xx body for a malformed
+JSON payload is now `{error:'invalid_request'}` instead of Fastify's own shape with the status
+unchanged, and a production deployment over plain HTTP must set `COOKIE_SECURE=false`. A hash
+written by the old synchronous scrypt still verifies, which a test now pins so nobody has to
+reset a password after the deploy.

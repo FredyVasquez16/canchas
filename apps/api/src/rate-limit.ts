@@ -11,6 +11,8 @@ export interface RateLimitResult {
 
 export interface RateLimiter {
   check(key: string, limit: number, windowMs: number): RateLimitResult;
+  /** Forgets a key, so a legitimate success cannot be punished by earlier attempts. */
+  reset(key: string): void;
   /** Live keys; expired ones are dropped on the way, so the map cannot grow forever. */
   size(): number;
 }
@@ -58,6 +60,10 @@ export function createRateLimiter(deps: { now: () => number }): RateLimiter {
     size() {
       sweep(deps.now());
       return windows.size;
+    },
+
+    reset(key) {
+      windows.delete(key);
     },
   };
 }

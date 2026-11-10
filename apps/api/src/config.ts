@@ -27,6 +27,16 @@ export function cookieSecure(env: NodeJS.ProcessEnv): boolean {
 }
 
 /**
+ * S42: behind this project's own reverse proxy every client shares the proxy address, which
+ * would turn the per-ip limits into a venue-wide cap. `TRUST_PROXY=true` makes Fastify read
+ * the forwarded address; it stays off by default because a direct deployment would otherwise
+ * let any client forge its own ip.
+ */
+export function trustProxy(env: NodeJS.ProcessEnv): boolean {
+  return (env.TRUST_PROXY ?? '').trim().toLowerCase() === 'true';
+}
+
+/**
  * S42: every auth attempt costs CPU or sends mail, so both are limited. The account limit is
  * what stops a brute force; the ip limit only stops a flood, because many clients of the
  * venue share one carrier address.
@@ -35,7 +45,7 @@ export const LOGIN_WINDOW_MS = 5 * 60_000;
 export const LOGIN_PER_ACCOUNT_LIMIT = 10;
 export const LOGIN_PER_IP_LIMIT = 30;
 export const REGISTER_WINDOW_MS = 60 * 60_000;
-export const REGISTER_PER_IP_LIMIT = 10;
+export const REGISTER_PER_IP_LIMIT = 30;
 export const FORGOT_WINDOW_MS = 15 * 60_000;
 export const FORGOT_PER_ACCOUNT_LIMIT = 5;
 export const FORGOT_PER_IP_LIMIT = 20;

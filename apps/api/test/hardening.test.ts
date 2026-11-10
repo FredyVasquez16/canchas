@@ -1,5 +1,7 @@
+import { randomBytes, scryptSync } from 'node:crypto';
 import { afterEach, describe, expect, it } from 'vitest';
 import { hashPassword, verifyPassword } from '../src/auth.ts';
+import { createUser } from '../src/db/users.ts';
 import { createRateLimiter } from '../src/rate-limit.ts';
 import { createTestContext, registerClient, type TestContext } from './helpers.ts';
 
@@ -287,5 +289,109 @@ describe('session cookie Secure flag (S43)', () => {
       headers: { cookie: session },
     });
     expect(after.statusCode).toBe(401);
+  });
+});
+
+describe('hashes written before the async change (S42)', () => {
+  it('still verifies, so nobody has to reset a password after the deploy', async () => {
+    const salt = randomBytes(16).toString('hex');
+    const legacy = `scrypt:${salt}:${scryptSync('clave-vieja-1', salt, 64).toString('hex')}`;
+
+    expect(await verifyPassword('clave-vieja-1', legacy)).toBe(true);
+    expect(await verifyPassword('otra-clave-1', legacy)).toBe(false);
+
+    context = createTestContext();
+    createUser(context.db, {
+      email: 'legacy@example.com',
+      passwordHash: legacy,
+      name: 'Legacy',
+      phone: '9999-1111',
+      now: context.clock.now,
+    });
+    const response = await context.app.inject({
+      method: 'POST',
+      url: '/api/auth/login',
+      payload: { email: 'legacy@example.com', password: 'clave-vieja-1' },
+    });
+    expect(response.statusCode).toBe(200);
+  });
+});
+
+describe('the register budget only counts real attempts (S42)', () => {
+  it('does not spend the hourly budget on malformed bodies', async () => {
+    context = createTestContext();
+
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      const malformed = await context.app.inject({
+        method: 'POST',
+        url: '/api/auth/register',
+        payload: { email: 'sin-telefono@example.com' },
+      });
+      expect(malformed.statusCode).toBe(400);
+    }
+
+    const valid = await context.app.inject({
+      method: 'POST',
+      url: '/api/auth/register',
+      payload: {
+        email: 'despues@example.com',
+        password: 'secreto123',
+        name: 'Despues',
+        phone: '9999-8888',
+      },
+    });
+    expect(valid.statusCode).toBe(201);
+  });
+});
+
+describe('a right password is never punished (S42)', () => {
+  it('allows ten honest sign-ins in a row', async () => {
+    context = createTestContext();
+    const client = await registerClient(context, {
+      email: 'constante@example.com',
+      password: 'secreto123',
+    });
+
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      const answer = await context.app.inject({
+        method: 'POST',
+        url: '/api/auth/login',
+        payload: { email: client.email, password: 'secreto123' },
+      });
+      expect(answer.statusCode).toBe(200);
+    }
+  });
+});
+
+describe('client address behind a proxy (S42)', () => {
+  async function exhaustOneAddress(withProxy: boolean): Promise<number> {
+    context = createTestContext({ trustProxy: withProxy });
+    for (const email of ['a@example.com', 'b@example.com', 'c@example.com']) {
+      for (let attempt = 0; attempt < 10; attempt += 1) {
+        const answer = await context.app.inject({
+          method: 'POST',
+          url: '/api/auth/login',
+          headers: { 'x-forwarded-for': '1.1.1.1' },
+          payload: { email, password: 'nunca-acierta' },
+        });
+        expect(answer.statusCode).toBe(401);
+      }
+    }
+    const fresh = await context.app.inject({
+      method: 'POST',
+      url: '/api/auth/login',
+      headers: { 'x-forwarded-for': '2.2.2.2' },
+      payload: { email: 'd@example.com', password: 'nunca-acierta' },
+    });
+    await context.app.close();
+    return fresh.statusCode;
+  }
+
+  it('gives each forwarded address its own budget when TRUST_PROXY is on', async () => {
+    expect(await exhaustOneAddress(true)).toBe(401);
+  });
+
+  it('ignores the header and shares one budget when TRUST_PROXY is off', async () => {
+    expect(await exhaustOneAddress(false)).toBe(429);
   });
 });

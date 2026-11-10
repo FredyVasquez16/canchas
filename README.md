@@ -63,6 +63,7 @@ API:
 | `REMINDER_INTERVAL_MS` | `900000` | Reminder scheduler interval |
 | `WEB_BASE_URL` | `http://localhost:5173` | Base of the web app, used to build the recovery link |
 | `COOKIE_SECURE` | unset | `"true"` marks the session cookie `Secure`; `"false"` never does; unset follows `NODE_ENV=production` |
+| `TRUST_PROXY` | unset | `"true"` makes the API read the forwarded client address; required behind a reverse proxy, dangerous without one |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | unset | Turns Google sign-in on; both are required |
 | `GOOGLE_REDIRECT_URI` | `http://localhost:3000/api/auth/google/callback` | Must match the Google Cloud console |
 
@@ -125,13 +126,20 @@ cannot freeze the API or flood a mailbox. The numbers live in `apps/api/src/conf
 
 | Route | Per account | Per ip | Window |
 | --- | --- | --- | --- |
-| `POST /api/auth/login` | 10 | 30 | 5 minutes |
-| `POST /api/auth/register` | — | 10 | 1 hour |
+| `POST /api/auth/login` | 10 failed attempts | 30 attempts | 5 minutes |
+| `POST /api/auth/register` | — | 30 | 1 hour |
 | `POST /api/auth/forgot-password` | 5 | 20 | 15 minutes |
 
 The per-ip limit is deliberately loose: many clients of the venue share one carrier address,
 so the per-account count is the one that stops a brute force. A limited login is refused even
-with the right password until the window passes.
+with the right password until the window passes, but **a successful login clears that
+account's counter**, so honest signing-in is never punished and only failed guesses add up.
+A malformed body does not spend the register budget.
+
+The counter lives in the API process: a restart clears it, and two instances do not share it.
+Behind a reverse proxy, set `TRUST_PROXY=true` or every client collapses onto the proxy
+address and the per-ip limits become a venue-wide cap. Serving production over plain HTTP
+means setting `COOKIE_SECURE=false`, otherwise the browser drops the session cookie.
 
 ## Checks
 

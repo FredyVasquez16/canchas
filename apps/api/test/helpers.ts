@@ -18,6 +18,7 @@ export interface TestOptions {
   fetchImpl?: typeof fetch;
   mailTransport?: 'smtp' | 'console';
   cookieSecure?: boolean;
+  trustProxy?: boolean;
 }
 
 export interface TestContext {
@@ -47,6 +48,7 @@ export function createTestContext(options: TestOptions = {}): TestContext {
     fetchImpl: options.fetchImpl,
     mailTransport: options.mailTransport,
     cookieSecure: options.cookieSecure,
+    trustProxy: options.trustProxy,
   });
   return { app, db, clock, mails };
 }
