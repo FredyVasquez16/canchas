@@ -55,7 +55,7 @@ export function registerAccountRoutes(
       if (currentPassword === undefined) {
         return reject(reply, 400, 'current_password_required');
       }
-      if (!verifyPassword(currentPassword, user.passwordHash)) {
+      if (!(await verifyPassword(currentPassword, user.passwordHash))) {
         return reject(reply, 403, 'invalid_current_password');
       }
     }
@@ -66,7 +66,7 @@ export function registerAccountRoutes(
 
     updateUserProfile(db, user.id, { name, phone });
     if (password !== undefined) {
-      updatePasswordHash(db, user.id, hashPassword(password));
+      updatePasswordHash(db, user.id, await hashPassword(password));
       const token = tokenFrom(request);
       if (token) {
         destroyOtherSessions(db, user.id, token);

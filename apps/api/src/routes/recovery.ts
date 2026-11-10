@@ -1,7 +1,13 @@
 import { randomBytes } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { PASSWORD_RESET_TTL_MS, SESSION_TTL_MS } from '../config.ts';
+import {
+  FORGOT_PER_ACCOUNT_LIMIT,
+  FORGOT_PER_IP_LIMIT,
+  FORGOT_WINDOW_MS,
+  PASSWORD_RESET_TTL_MS,
+  SESSION_TTL_MS,
+} from '../config.ts';
 import type { Db } from '../db/index.ts';
 import {
   createPasswordReset,
@@ -15,8 +21,9 @@ import {
   hashPassword,
   hashToken,
 } from '../auth.ts';
-import { publicUser, reject, sessionCookie } from '../http.ts';
+import { publicUser, reject, sessionCookie, tooMany } from '../http.ts';
 import type { Mailer } from '../jobs.ts';
+import type { RateLimiter } from '../rate-limit.ts';
 
 const forgotSchema = z.object({
   email: z.string().trim().pipe(z.email()),
@@ -34,6 +41,8 @@ export interface RecoveryDeps {
   now: () => number;
   mailer: Mailer;
   webBaseUrl: string;
+  limiter: RateLimiter;
+  cookieSecure: boolean;
 }
 
 /** S35: the mail explains the link in plain words; the page does the rest. */
@@ -64,12 +73,28 @@ export function resetLink(webBaseUrl: string, token: string): string {
 }
 
 export function registerRecoveryRoutes(app: FastifyInstance, deps: RecoveryDeps): void {
-  const { db, now, mailer, webBaseUrl } = deps;
+  const { db, now, mailer, webBaseUrl, limiter, cookieSecure } = deps;
 
   app.post('/api/auth/forgot-password', async (request, reply) => {
     const parsed = forgotSchema.safeParse(request.body);
     if (!parsed.success) {
       return reject(reply, 400, 'invalid_input');
+    }
+
+    // S42: asking for a link costs a database row and an email, so it is limited per account
+    // and per ip, before anything is written.
+    const emailKey = parsed.data.email.trim().toLowerCase();
+    const accountLimit = limiter.check(
+      `forgot:account:${emailKey}`,
+      FORGOT_PER_ACCOUNT_LIMIT,
+      FORGOT_WINDOW_MS,
+    );
+    if (!accountLimit.allowed) {
+      return tooMany(reply, accountLimit.retryAfterSeconds);
+    }
+    const ipLimit = limiter.check(`forgot:ip:${request.ip}`, FORGOT_PER_IP_LIMIT, FORGOT_WINDOW_MS);
+    if (!ipLimit.allowed) {
+      return tooMany(reply, ipLimit.retryAfterSeconds);
     }
 
     const user = findUserByEmail(db, parsed.data.email);
@@ -117,7 +142,7 @@ export function registerRecoveryRoutes(app: FastifyInstance, deps: RecoveryDeps)
       return reject(reply, 400, 'invalid_token');
     }
 
-    const passwordHash = hashPassword(parsed.data.password);
+    const passwordHash = await hashPassword(parsed.data.password);
     db.exec('BEGIN IMMEDIATE');
     let token: string;
     try {
@@ -133,7 +158,7 @@ export function registerRecoveryRoutes(app: FastifyInstance, deps: RecoveryDeps)
     }
 
     const updated = findUserById(db, user.id)!;
-    reply.header('Set-Cookie', sessionCookie(token, SESSION_TTL_MS));
+    reply.header('Set-Cookie', sessionCookie(token, SESSION_TTL_MS, cookieSecure));
     return reply.code(200).send({ user: publicUser(updated) });
   });
 }

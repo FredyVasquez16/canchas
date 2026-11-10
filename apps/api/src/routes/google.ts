@@ -29,6 +29,8 @@ export interface GoogleDeps {
   webBaseUrl: string;
   /** Injected by the tests so the suite never reaches the network. */
   fetchImpl?: typeof fetch;
+  /** S43: marks the session cookie `Secure` when the deployment speaks TLS. */
+  cookieSecure?: boolean;
 }
 
 /**
@@ -116,7 +118,10 @@ export function registerGoogleRoutes(app: FastifyInstance, deps: GoogleDeps): vo
     const token = createSession(db, user.id, timestamp, SESSION_TTL_MS);
     // S38: a Google account starts without a phone, and the app asks for it before booking.
     const destination = user.phone.trim() === '' ? '#/completar-perfil' : '#/mis-reservas';
-    reply.header('Set-Cookie', [sessionCookie(token, SESSION_TTL_MS), CLEAR_GOOGLE_STATE_COOKIE]);
+    reply.header('Set-Cookie', [
+      sessionCookie(token, SESSION_TTL_MS, deps.cookieSecure ?? false),
+      CLEAR_GOOGLE_STATE_COOKIE,
+    ]);
     return reply.redirect(`${deps.webBaseUrl.replace(/\/+$/, '')}/${destination}`, 302);
   });
 }

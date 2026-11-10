@@ -15,7 +15,7 @@ const DATE = '2025-03-12';
 async function signInAs(context: TestContext, role: 'admin' | 'staff', email: string) {
   createUser(context.db, {
     email,
-    passwordHash: hashPassword('panel1234'),
+    passwordHash: await hashPassword('panel1234'),
     name: role === 'admin' ? 'Dueno' : 'Encargado',
     phone: role === 'admin' ? '9999-0000' : '9999-0001',
     role,

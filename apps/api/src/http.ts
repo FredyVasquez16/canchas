@@ -23,11 +23,20 @@ export function tokenFrom(request: FastifyRequest): string | null {
   return cookieValue(request, 'session');
 }
 
-export function sessionCookie(token: string, ttlMs: number): string {
-  return `session=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${Math.floor(ttlMs / 1000)}`;
+/** S43: `Secure` keeps the cookie off plain HTTP when the deployment speaks TLS. */
+export function sessionCookie(token: string, ttlMs: number, secure = false): string {
+  return `session=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${Math.floor(ttlMs / 1000)}${secure ? '; Secure' : ''}`;
 }
 
-export const CLEAR_COOKIE = 'session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0';
+export function clearSessionCookie(secure = false): string {
+  return `session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secure ? '; Secure' : ''}`;
+}
+
+/** S42: the one answer every limited auth attempt gets, with the wait it should respect. */
+export function tooMany(reply: FastifyReply, retryAfterSeconds: number): FastifyReply {
+  reply.header('Retry-After', String(retryAfterSeconds));
+  return reject(reply, 429, 'too_many_requests');
+}
 
 export interface PublicUser {
   id: string;

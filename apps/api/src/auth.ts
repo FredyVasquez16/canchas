@@ -1,8 +1,21 @@
-import { createHash, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
+import { promisify } from 'node:util';
 import type { Db } from './db/index.ts';
 import { findUserById, type UserRecord } from './db/users.ts';
 
 const KEY_LENGTH = 64;
+
+/**
+ * S42: the synchronous scrypt blocked the event loop for ~50-100 ms per attempt, which is
+ * enough to freeze the single-threaded API under a burst. The asynchronous form runs on the
+ * libuv pool. The salt, the length and the stored format are unchanged, so every hash that
+ * is already in the database keeps verifying.
+ */
+const scryptAsync = promisify(scrypt) as (
+  password: string | Buffer,
+  salt: string | Buffer,
+  keylen: number,
+) => Promise<Buffer>;
 
 /**
  * S40: an account created with Google stores no usable password. `verifyPassword` already
@@ -10,19 +23,22 @@ const KEY_LENGTH = 64;
  */
 export const NO_PASSWORD_HASH = 'google-only';
 
-export function hashPassword(password: string): string {
+export async function hashPassword(password: string): Promise<string> {
   const salt = randomBytes(16).toString('hex');
-  const derived = scryptSync(password, salt, KEY_LENGTH).toString('hex');
-  return `scrypt:${salt}:${derived}`;
+  const derived = await scryptAsync(password, salt, KEY_LENGTH);
+  return `scrypt:${salt}:${derived.toString('hex')}`;
 }
 
-export function verifyPassword(password: string, stored: string): boolean {
+export async function verifyPassword(password: string, stored: string): Promise<boolean> {
   const [scheme, salt, expected] = stored.split(':');
   if (scheme !== 'scrypt' || !salt || !expected) {
     return false;
   }
-  const derived = scryptSync(password, salt, KEY_LENGTH);
   const expectedBuffer = Buffer.from(expected, 'hex');
+  if (expectedBuffer.length !== KEY_LENGTH) {
+    return false;
+  }
+  const derived = await scryptAsync(password, salt, KEY_LENGTH);
   if (expectedBuffer.length !== derived.length) {
     return false;
   }

@@ -310,6 +310,7 @@ export function errorMessage(error: unknown): string {
       invalid_input: 'Revisa los datos: hay algo incompleto o mal escrito.',
       email_taken: 'Ese correo ya tiene una cuenta.',
       invalid_credentials: 'Correo o contraseña incorrectos.',
+      too_many_requests: 'Demasiados intentos seguidos. Espera unos minutos y vuelve a probar.',
       invalid_token:
         'Ese enlace venció o ya se usó. Pide uno nuevo para elegir tu contraseña.',
       phone_required:

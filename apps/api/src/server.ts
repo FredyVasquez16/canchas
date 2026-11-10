@@ -1,5 +1,5 @@
 import { buildApp } from './app.ts';
-import { reminderIntervalMs } from './config.ts';
+import { cookieSecure, reminderIntervalMs } from './config.ts';
 import { openDatabase } from './db/index.ts';
 import { googleConfigFromEnv } from './google.ts';
 import { createMailer } from './mailer.ts';
@@ -20,7 +20,14 @@ const { mailer, status } = createMailer(process.env);
 const google = googleConfigFromEnv(process.env);
 
 const app = buildApp(
-  { db, mailer, google, webBaseUrl: process.env.WEB_BASE_URL, mailTransport: status.transport },
+  {
+    db,
+    mailer,
+    google,
+    webBaseUrl: process.env.WEB_BASE_URL,
+    mailTransport: status.transport,
+    cookieSecure: cookieSecure(process.env),
+  },
   { logger: true },
 );
 

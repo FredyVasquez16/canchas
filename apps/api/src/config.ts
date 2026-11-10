@@ -11,6 +11,35 @@ export const MAX_ACTIVE_RESERVATIONS = 2;
 
 export const SESSION_TTL_MS = 30 * 24 * 3_600_000;
 
+/**
+ * S43: the session cookie carries `Secure` when the deployment speaks TLS. `COOKIE_SECURE`
+ * overrides; otherwise production implies TLS and development does not.
+ */
+export function cookieSecure(env: NodeJS.ProcessEnv): boolean {
+  const raw = (env.COOKIE_SECURE ?? '').trim().toLowerCase();
+  if (raw === 'true') {
+    return true;
+  }
+  if (raw === 'false') {
+    return false;
+  }
+  return (env.NODE_ENV ?? '').trim().toLowerCase() === 'production';
+}
+
+/**
+ * S42: every auth attempt costs CPU or sends mail, so both are limited. The account limit is
+ * what stops a brute force; the ip limit only stops a flood, because many clients of the
+ * venue share one carrier address.
+ */
+export const LOGIN_WINDOW_MS = 5 * 60_000;
+export const LOGIN_PER_ACCOUNT_LIMIT = 10;
+export const LOGIN_PER_IP_LIMIT = 30;
+export const REGISTER_WINDOW_MS = 60 * 60_000;
+export const REGISTER_PER_IP_LIMIT = 10;
+export const FORGOT_WINDOW_MS = 15 * 60_000;
+export const FORGOT_PER_ACCOUNT_LIMIT = 5;
+export const FORGOT_PER_IP_LIMIT = 20;
+
 /** S31: a recovery link lives one hour, counted from the moment the client asked for it. */
 export const PASSWORD_RESET_TTL_MS = 3_600_000;
 

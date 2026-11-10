@@ -1,4 +1,4 @@
-import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify';
+import Fastify, { type FastifyError, type FastifyInstance, type FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import {
   HOUR_MS,
@@ -13,7 +13,16 @@ import {
   type Court,
   type CourtReservation,
 } from '@canchas/core';
-import { SESSION_TTL_MS, DEFAULT_WEB_BASE_URL, apiConfig } from './config.ts';
+import {
+  DEFAULT_WEB_BASE_URL,
+  LOGIN_PER_ACCOUNT_LIMIT,
+  LOGIN_PER_IP_LIMIT,
+  LOGIN_WINDOW_MS,
+  REGISTER_PER_IP_LIMIT,
+  REGISTER_WINDOW_MS,
+  SESSION_TTL_MS,
+  apiConfig,
+} from './config.ts';
 import type { Db } from './db/index.ts';
 import { createUser, findUserByEmail, type UserRecord } from './db/users.ts';
 import {
@@ -36,7 +45,8 @@ import {
 } from './db/reservations.ts';
 import { findActiveBlock } from './db/blocks.ts';
 import { isValidHonduranPhone } from './phone.ts';
-import { CLEAR_COOKIE, publicUser, reject, sessionCookie, tokenFrom } from './http.ts';
+import { clearSessionCookie, publicUser, reject, sessionCookie, tokenFrom, tooMany } from './http.ts';
+import { createRateLimiter } from './rate-limit.ts';
 import { ConsoleMailer } from './mailer.ts';
 import type { Mailer } from './jobs.ts';
 import type { GoogleConfig } from './google.ts';
@@ -61,6 +71,8 @@ export interface AppDeps {
    * printed to the API log, and the web says so instead of promising an email.
    */
   mailTransport?: 'smtp' | 'console';
+  /** S43: marks the session cookie `Secure` when the deployment speaks TLS. */
+  cookieSecure?: boolean;
 }
 
 const registerSchema = z.object({
@@ -69,7 +81,6 @@ const registerSchema = z.object({
   name: z.string().trim().min(2),
   phone: z.string().refine(isValidHonduranPhone, 'invalid_phone'),
 });
-
 const loginSchema = z.object({
   email: z.email(),
   password: z.string().min(1),
@@ -83,7 +94,9 @@ const createReservationSchema = z.object({
   courtId: z.string().min(1),
   date: z.string().refine(isVenueDate, 'invalid_date'),
   startHour: z.number().int().min(0).max(23),
-  hours: z.number().int().min(1),
+  // S44: a day has 24 hours, so a bigger range is a malformed request and would only buy a
+  // giant overlap query.
+  hours: z.number().int().min(1).max(24),
 });
 
 function toCoreCourt(court: {
@@ -104,6 +117,22 @@ export function buildApp(deps: AppDeps, options: { logger?: boolean } = {}): Fas
   const { db } = deps;
   const now = deps.now ?? (() => Date.now());
   const app = Fastify({ logger: options.logger ?? false });
+  const secureCookies = deps.cookieSecure ?? false;
+  const limiter = createRateLimiter({ now });
+
+  // S45: an uncaught exception must never hand its message, its stack or a path to the
+  // client; the detail goes to the log of whoever runs the venue.
+  app.setErrorHandler((error: FastifyError, request, reply) => {
+    const status =
+      typeof error.statusCode === 'number' && error.statusCode >= 400 && error.statusCode < 500
+        ? error.statusCode
+        : 500;
+    if (status >= 500) {
+      request.log.error({ err: error }, 'request failed');
+      return reply.code(500).send({ error: 'internal_error' });
+    }
+    return reply.code(status).send({ error: 'invalid_request' });
+  });
 
   function currentUser(request: FastifyRequest): UserRecord | null {
     const token = tokenFrom(request);
@@ -128,6 +157,16 @@ export function buildApp(deps: AppDeps, options: { logger?: boolean } = {}): Fas
   );
 
   app.post('/api/auth/register', async (request, reply) => {
+    // S42: the ip limit runs before any hashing work happens.
+    const registerLimit = limiter.check(
+      `register:ip:${request.ip}`,
+      REGISTER_PER_IP_LIMIT,
+      REGISTER_WINDOW_MS,
+    );
+    if (!registerLimit.allowed) {
+      return tooMany(reply, registerLimit.retryAfterSeconds);
+    }
+
     const parsed = registerSchema.safeParse(request.body);
     if (!parsed.success) {
       return reject(reply, 400, 'invalid_input');
@@ -138,14 +177,14 @@ export function buildApp(deps: AppDeps, options: { logger?: boolean } = {}): Fas
 
     const user = createUser(db, {
       email: parsed.data.email,
-      passwordHash: hashPassword(parsed.data.password),
+      passwordHash: await hashPassword(parsed.data.password),
       name: parsed.data.name,
       phone: parsed.data.phone,
       now: now(),
     });
     const token = createSession(db, user.id, now(), SESSION_TTL_MS);
 
-    reply.header('Set-Cookie', sessionCookie(token, SESSION_TTL_MS));
+    reply.header('Set-Cookie', sessionCookie(token, SESSION_TTL_MS, secureCookies));
     return reply.code(201).send({ user: publicUser(user) });
   });
 
@@ -155,13 +194,27 @@ export function buildApp(deps: AppDeps, options: { logger?: boolean } = {}): Fas
       return reject(reply, 400, 'invalid_input');
     }
 
+    // S42: count the attempt before spending CPU on scrypt, per account and per ip.
+    const accountLimit = limiter.check(
+      `login:account:${parsed.data.email.trim().toLowerCase()}`,
+      LOGIN_PER_ACCOUNT_LIMIT,
+      LOGIN_WINDOW_MS,
+    );
+    if (!accountLimit.allowed) {
+      return tooMany(reply, accountLimit.retryAfterSeconds);
+    }
+    const ipLimit = limiter.check(`login:ip:${request.ip}`, LOGIN_PER_IP_LIMIT, LOGIN_WINDOW_MS);
+    if (!ipLimit.allowed) {
+      return tooMany(reply, ipLimit.retryAfterSeconds);
+    }
+
     const user = findUserByEmail(db, parsed.data.email);
-    if (!user || !verifyPassword(parsed.data.password, user.passwordHash)) {
+    if (!user || !(await verifyPassword(parsed.data.password, user.passwordHash))) {
       return reject(reply, 401, 'invalid_credentials');
     }
 
     const token = createSession(db, user.id, now(), SESSION_TTL_MS);
-    reply.header('Set-Cookie', sessionCookie(token, SESSION_TTL_MS));
+    reply.header('Set-Cookie', sessionCookie(token, SESSION_TTL_MS, secureCookies));
     return reply.code(200).send({ user: publicUser(user) });
   });
 
@@ -170,7 +223,7 @@ export function buildApp(deps: AppDeps, options: { logger?: boolean } = {}): Fas
     if (token) {
       destroySession(db, token);
     }
-    reply.header('Set-Cookie', CLEAR_COOKIE);
+    reply.header('Set-Cookie', clearSessionCookie(secureCookies));
     return reply.code(200).send({ ok: true });
   });
 
@@ -394,6 +447,8 @@ export function buildApp(deps: AppDeps, options: { logger?: boolean } = {}): Fas
     now,
     mailer: deps.mailer ?? new ConsoleMailer(),
     webBaseUrl: deps.webBaseUrl ?? DEFAULT_WEB_BASE_URL,
+    limiter,
+    cookieSecure: secureCookies,
   });
   if (deps.google) {
     registerGoogleRoutes(app, {
@@ -402,6 +457,7 @@ export function buildApp(deps: AppDeps, options: { logger?: boolean } = {}): Fas
       google: deps.google,
       webBaseUrl: deps.webBaseUrl ?? DEFAULT_WEB_BASE_URL,
       fetchImpl: deps.fetchImpl,
+      cookieSecure: secureCookies,
     });
   } else {
     // S36: with no credentials the flow answers exactly that, instead of a 404 nobody reads.
